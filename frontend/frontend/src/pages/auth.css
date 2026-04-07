@@ -1,0 +1,170 @@
+/* =====================================
+   SHARED AUTH PAGE LAYOUT (LOGIN + SIGNUP)
+   ===================================== */
+
+.auth-container{
+display:flex;
+height:100vh;
+font-family:"Inter", "Segoe UI", sans-serif;
+background: radial-gradient(circle at top right, #eff6ff, #f8fafc, #ffffff);
+color: #0f172a;
+}
+
+
+/* =====================================
+   LEFT SIDE ILLUSTRATION (LOGIN + SIGNUP)
+   ===================================== */
+
+.auth-left{
+flex:1;
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+/* image size control */
+
+.auth-image{
+max-width:70%;
+height:auto;
+animation: float 4s ease-in-out infinite;
+}
+
+.auth-image img{
+width:100%;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+  100% { transform: translateY(0px); }
+}
+
+
+/* =====================================
+   RIGHT SIDE AREA (LOGIN + SIGNUP)
+   ===================================== */
+
+.auth-right{
+flex:1;
+display:flex;
+align-items:center;
+justify-content:center;
+background: transparent;
+}
+
+
+/* =====================================
+   AUTH FORM CONTAINER (LOGIN + SIGNUP)
+   ===================================== */
+
+.auth-card{
+width:420px;
+max-height:90vh;
+overflow-y:auto;
+background:#ffffff;
+padding:40px;
+border-radius:20px;
+box-shadow:0 25px 50px rgba(0, 0, 0, 0.08);
+border: 1px solid rgba(255, 255, 255, 0.8);
+text-align:center;
+transition: transform 0.3s ease;
+}
+
+.auth-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.1);
+}
+
+
+/* =====================================
+   PAGE TITLE (LOGIN + SIGNUP)
+   ===================================== */
+
+.auth-card h2{
+color:#0f172a;
+font-weight:800;
+margin-bottom:8px;
+}
+
+.auth-card p{
+color:#64748b;
+margin-bottom:26px;
+}
+
+
+/* =====================================
+   INPUT FIELDS (LOGIN + SIGNUP)
+   ===================================== */
+
+.auth-card input,
+.auth-card select{
+width:100%;
+padding:12px;
+margin-bottom:14px;
+border:1px solid #d1d5db;
+border-radius:8px;
+font-size:14px;
+background:white;
+color:#111827;
+}
+
+/* placeholder text */
+
+.auth-card input::placeholder{
+color:#6b7280;
+}
+
+/* input focus effect */
+
+.auth-card input:focus,
+.auth-card select:focus{
+outline:none;
+border-color:#3b82f6;
+box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+
+/* =====================================
+   BUTTON STYLE (LOGIN + SIGNUP)
+   ===================================== */
+
+.auth-card button{
+width:100%;
+padding:16px;
+background:#2563eb;
+color:white;
+border:none;
+border-radius:12px;
+font-size:16px;
+font-weight:600;
+cursor:pointer;
+transition:all 0.2s;
+box-shadow:0 8px 25px rgba(37, 99, 235, 0.25);
+}
+
+.auth-card button:hover{
+background:#1d4ed8;
+transform: translateY(-3px);
+box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
+}
+
+
+/* =====================================
+   LOGIN / SIGNUP PAGE LINK
+   (example: "Already have account? Login")
+   ===================================== */
+
+.auth-link{
+margin-top:15px;
+font-size:14px;
+}
+
+.auth-link a{
+color:#3b82f6;
+text-decoration:none;
+}
+
+
+
+

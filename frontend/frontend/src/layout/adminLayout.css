@@ -1,0 +1,82 @@
+/* ========== LAYOUT ========== */
+
+.admin-layout{
+display:flex;
+height:100vh;
+font-family:"Segoe UI",sans-serif;
+}
+
+
+/* ========== SIDEBAR ========== */
+
+.sidebar{
+width:240px;
+background:#ffffff;
+color:#0f172a;
+padding:25px;
+border-right: 1px solid #e2e8f0;
+}
+
+.logo{
+font-size:22px;
+margin-bottom:40px;
+font-weight:700;
+color: #0f172a;
+}
+
+.menu div{
+display:flex;
+align-items:center;
+gap:10px;
+padding:12px;
+margin-bottom:10px;
+border-radius:6px;
+cursor:pointer;
+transition:0.2s;
+color: #475569;
+font-weight: 500;
+}
+
+.menu div:hover{
+background:#f1f5f9;
+color: #0f172a;
+}
+
+/* ========== MAIN AREA ========== */
+
+.main-area{
+flex:1;
+background:#f4f6f9;
+color:#475569;
+display:flex;
+flex-direction:column;
+}
+
+/* ========== TOP BAR ========== */
+
+.topbar{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:20px 30px;
+background:#ffffff;
+border-bottom:1px solid #e2e8f0;
+}
+
+.topbar h3 {
+  font-weight: 600;
+}
+
+.profile {
+  background: #2563eb;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+/* ========== CONTENT ========== */
+
+.main-area > div{
+background:#f3f4f6 !important;
+}
