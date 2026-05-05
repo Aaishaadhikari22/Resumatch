@@ -29,6 +29,10 @@ const applicationSchema = new mongoose.Schema({
     enum: ["applied", "reviewed", "accepted", "rejected"],
     default: "applied"
   },
+  similarityScore: {
+    type: Number,
+    default: 0
+  },
   
   // Shortlist Flag
   isShortlisted: {

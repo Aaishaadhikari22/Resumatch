@@ -5,11 +5,10 @@
 // User Profile Validation
 export const validateUserProfile = (user) => {
   const requiredFields = {
-    name: { completed: !!user.name, weight: 15 },
-    email: { completed: !!user.email, weight: 15 },
-    phone: { completed: !!user.phone, weight: 15 },
+    name: { completed: !!user.name, weight: 20 },
+    email: { completed: !!user.email, weight: 20 },
+    phone: { completed: !!user.phone, weight: 20 },
     address: { completed: !!user.address && !!user.city, weight: 20 },
-    profilePhoto: { completed: !!user.profilePhoto, weight: 15 },
     documents: { completed: user.documents && user.documents.length > 0, weight: 20 }
   };
 
@@ -91,14 +90,6 @@ export const validateEmployerProfile = (employer) => {
 const generateUserWarnings = (user, missingFields) => {
   const warnings = [];
 
-  if (!user.profilePhoto) {
-    warnings.push({
-      level: "warning",
-      field: "profilePhoto",
-      message: "⚠️ Profile photo is required for better job matching",
-      suggestion: "Upload a professional profile photo"
-    });
-  }
 
   if (!user.phone) {
     warnings.push({

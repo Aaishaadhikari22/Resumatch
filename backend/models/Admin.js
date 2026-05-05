@@ -59,7 +59,10 @@ const adminSchema = new mongoose.Schema({
     type: String,
     enum: ["active", "inactive", "pending"],
     default: "active"
-  }
+  },
+
+  otp: { type: String, default: null },
+  otpExpires: { type: Date, default: null }
 
 }, { timestamps: true });
 

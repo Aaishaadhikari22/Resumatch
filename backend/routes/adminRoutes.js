@@ -41,13 +41,72 @@ router.get("/dashboard", auth(), checkPermission(["view_analytics", "manage_jobs
     const pendingEmployers = await Employer.countDocuments({ status: "pending" });
     const totalResumes = await Resume.countDocuments();
 
+    // Generate Chart Data dynamically (Last 5 Months)
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const chartDataMap = {};
+    
+    // Initialize last 5 months
+    for (let i = 4; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const monthName = months[d.getMonth()];
+      chartDataMap[monthName] = { name: monthName, users: 0, jobs: 0 };
+    }
+
+    const fiveMonthsAgo = new Date();
+    fiveMonthsAgo.setMonth(fiveMonthsAgo.getMonth() - 5);
+
+    const usersData = await User.aggregate([
+      { $match: { role: "user", createdAt: { $gte: fiveMonthsAgo } } },
+      { $project: { month: { $month: "$createdAt" } } },
+      { $group: { _id: "$month", count: { $sum: 1 } } }
+    ]);
+
+    usersData.forEach(u => {
+      const monthName = months[u._id - 1];
+      if (chartDataMap[monthName]) chartDataMap[monthName].users = u.count;
+    });
+
+    const jobsData = await Job.aggregate([
+      { $match: { createdAt: { $gte: fiveMonthsAgo } } },
+      { $project: { month: { $month: "$createdAt" } } },
+      { $group: { _id: "$month", count: { $sum: 1 } } }
+    ]);
+
+    jobsData.forEach(j => {
+      const monthName = months[j._id - 1];
+      if (chartDataMap[monthName]) chartDataMap[monthName].jobs = j.count;
+    });
+
+    // Generate Growth (Comparing Last 30 days vs Previous 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sixtyDaysAgo = new Date();
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const calculateGrowth = async (Model, query = {}) => {
+      const recent = await Model.countDocuments({ ...query, createdAt: { $gte: thirtyDaysAgo } });
+      const previous = await Model.countDocuments({ ...query, createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } });
+      if (previous === 0) return recent > 0 ? 100 : 0;
+      return Math.round(((recent - previous) / previous) * 100);
+    };
+
+    const growth = {
+      users: await calculateGrowth(User, { role: "user" }),
+      employers: await calculateGrowth(Employer),
+      jobs: await calculateGrowth(Job),
+      resumes: await calculateGrowth(Resume)
+    };
+
     res.json({
       totalUsers,
       totalEmployers,
       totalJobs,
       pendingJobs,
       pendingEmployers,
-      totalResumes
+      totalResumes,
+      chartData: Object.values(chartDataMap),
+      growth
     });
   } catch (err) {
     res.status(500).json({ msg: err.message });
@@ -190,12 +249,11 @@ router.get("/jobs", auth(), checkPermission(["manage_jobs", "approve_jobs"]), as
       let totalMatch = 0;
       let ratedCount = 0;
       
-      const jobSkills = (job.skillsRequired || []).map(s => s.toLowerCase());
-      if (jobSkills.length > 0) {
+      if ((job.skillsRequired || []).length > 0) {
         for (const app of applications) {
           const resume = await Resume.findOne({ user: app.user });
           if (resume && resume.skills && resume.skills.length > 0) {
-            const result = calculateSimilarityScore(jobSkills, resume.skills);
+            const result = calculateSimilarityScore(job, resume);
             totalMatch += result.score;
             ratedCount++;
           }

@@ -19,7 +19,7 @@ npm run dev
 
 ### Frontend
 ```bash
-cd frontend/frontend
+cd frontend
 npm install
 npm run dev
 ```

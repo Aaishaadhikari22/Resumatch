@@ -17,11 +17,10 @@ router.get("/all", async (req, res) => {
       let maxMatch = 0;
       if (r.skills && r.skills.length > 0 && jobs.length > 0) {
         for (const job of jobs) {
-           const jobSkills = (job.skillsRequired || []).map(s => s.toLowerCase());
-           if (jobSkills.length > 0) {
-             const score = calculateSimilarityScore(jobSkills, r.skills).score;
-             if (score > maxMatch) maxMatch = score;
-           }
+          if ((job.skillsRequired || []).length > 0) {
+            const score = calculateSimilarityScore(job, r).score;
+            if (score > maxMatch) maxMatch = score;
+          }
         }
       }
 

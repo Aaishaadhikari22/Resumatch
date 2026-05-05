@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import Category from "../models/Category.js";
 import Notification from "../models/Notification.js";
+import { emitNotification, emitDashboardRefreshToUser, emitDashboardRefreshToEmployer, emitDashboardRefreshToAdmins } from "../utils/socketServer.js";
 import Job from "../models/Job.js";
 import Admin from "../models/Admin.js";
 import Employer from "../models/Employer.js";
@@ -97,7 +98,8 @@ export const createUser = async (req, res) => {
       email, 
       password: hashedPassword, 
       phone, 
-      role: role || "user" 
+      role: role || "user",
+      isEmailVerified: true
     });
     
     await newUser.save();
@@ -118,7 +120,7 @@ export const updateUserStatus = async (req, res) => {
 
     await logAction("Update User Status", `Changed user ${user.email} status to ${status}`, req, "user", user._id);
 
-    await Notification.create({
+    const notification = await Notification.create({
       recipient: user._id,
       onModel: 'User',
       type: 'status_update',
@@ -126,6 +128,10 @@ export const updateUserStatus = async (req, res) => {
       message: `Your account status has been updated to: ${status}.`,
       link: '/user/profile'
     });
+
+    emitNotification(user._id, 'User', notification);
+    emitDashboardRefreshToUser(user._id);
+    emitDashboardRefreshToAdmins();
 
     res.json({ message: `User status updated to ${status}` });
   } catch (error) {
@@ -137,6 +143,8 @@ export const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     await User.findByIdAndDelete(req.params.id);
+    await Resume.deleteMany({ user: req.params.id });
+    await Application.deleteMany({ user: req.params.id });
     await logAction("Delete User", `Deleted user ${user?.email || req.params.id}`, req, "user", req.params.id);
     res.json({ message: "User deleted successfully" });
   } catch (error) {
@@ -182,7 +190,8 @@ export const createEmployer = async (req, res) => {
       password: hashedPassword, 
       phone, 
       status: "approved", 
-      verifiedBy: "admin" 
+      verifiedBy: "admin",
+      isEmailVerified: true
     });
     
     await newEmployer.save();
@@ -205,7 +214,7 @@ export const updateEmployerStatus = async (req, res) => {
     employer.verifiedBy = req.user?.role || "admin";
     await employer.save({ validateModifiedOnly: true });
 
-    await Notification.create({
+    const notification = await Notification.create({
       recipient: employer._id,
       onModel: 'Employer',
       type: 'status_update',
@@ -213,6 +222,10 @@ export const updateEmployerStatus = async (req, res) => {
       message: `Your employer account status has been updated to: ${status}.`,
       link: '/employer/dashboard'
     });
+
+    emitNotification(employer._id, 'Employer', notification);
+    emitDashboardRefreshToEmployer(employer._id);
+    emitDashboardRefreshToAdmins();
 
     res.json({ message: `Employer status updated to ${status}`, employer });
   } catch (error) {
@@ -224,6 +237,7 @@ export const deleteEmployer = async (req, res) => {
   try {
     await Employer.findByIdAndDelete(req.params.id);
     await Job.deleteMany({ employer: req.params.id });
+    await Application.deleteMany({ employer: req.params.id });
     res.json({ message: "Employer and their jobs deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -255,7 +269,7 @@ export const approveJob = async (req, res) => {
 
         const score = jobSkills.length > 0 ? Math.round((matchCount / jobSkills.length) * 100) : 0;
         if (score >= 80) {
-            await Notification.create({
+            const notification = await Notification.create({
                 recipient: resume.user,
                 onModel: 'User',
                 type: 'job_match',
@@ -263,12 +277,14 @@ export const approveJob = async (req, res) => {
                 message: `A new job "${job.title}" matching ${score}% of your skills was just posted.`,
                 link: `/user/dashboard`
             });
+            emitNotification(resume.user, 'User', notification);
+            emitDashboardRefreshToUser(resume.user);
         }
       }
     }
 
     // Notify Employer
-    await Notification.create({
+    const employerNotification = await Notification.create({
         recipient: job.employer,
         onModel: 'Employer',
         type: 'status_update',
@@ -276,6 +292,10 @@ export const approveJob = async (req, res) => {
         message: `Your job "${job.title}" has been approved and is now live.`,
         link: '/employer/my-jobs'
     });
+
+    emitNotification(job.employer, 'Employer', employerNotification);
+    emitDashboardRefreshToEmployer(job.employer);
+    emitDashboardRefreshToAdmins();
 
     res.json({ message: "Job approved and notifications sent!" });
   } catch (error) {
@@ -291,7 +311,7 @@ export const rejectJob = async (req, res) => {
     job.jobStatus = "rejected";
     await job.save({ validateModifiedOnly: true });
 
-    await Notification.create({
+    const notification = await Notification.create({
       recipient: job.employer,
       onModel: 'Employer',
       type: 'status_update',
@@ -299,6 +319,10 @@ export const rejectJob = async (req, res) => {
       message: `Your job "${job.title}" was not approved by the moderation team.`,
       link: '/employer/my-jobs'
     });
+
+    emitNotification(job.employer, 'Employer', notification);
+    emitDashboardRefreshToEmployer(job.employer);
+    emitDashboardRefreshToAdmins();
 
     res.json({ message: "Job rejected and notification sent." });
   } catch (error) {
@@ -334,7 +358,7 @@ export const updateJobStatus = async (req, res) => {
 
           const score = jobSkills.length > 0 ? Math.round((matchCount / jobSkills.length) * 100) : 0;
           if (score >= 80) {
-              await Notification.create({
+              const notification = await Notification.create({
                   recipient: resume.user,
                   onModel: 'User',
                   type: 'job_match',
@@ -342,6 +366,8 @@ export const updateJobStatus = async (req, res) => {
                   message: `A new job "${job.title}" matching ${score}% of your skills was just posted.`,
                   link: `/user/dashboard`
               });
+              emitNotification(resume.user, 'User', notification);
+              emitDashboardRefreshToUser(resume.user);
           }
         }
       }
@@ -355,7 +381,7 @@ export const updateJobStatus = async (req, res) => {
       ? `Your job "${job.title}" was not approved by the moderation team.`
       : `Your job "${job.title}" has been ${status}.`;
 
-    await Notification.create({
+    const employerNotification = await Notification.create({
       recipient: job.employer,
       onModel: 'Employer',
       type: 'status_update',
@@ -363,6 +389,10 @@ export const updateJobStatus = async (req, res) => {
       message: notificationMessage,
       link: '/employer/my-jobs'
     });
+
+    emitNotification(job.employer, 'Employer', employerNotification);
+    emitDashboardRefreshToEmployer(job.employer);
+    emitDashboardRefreshToAdmins();
 
     res.json({ message: `Job status updated to ${status}`, job });
   } catch (error) {

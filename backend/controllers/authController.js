@@ -117,3 +117,73 @@ export const loginAdmin = async (req, res) => {
 
   }
 };
+
+// Generate 6-digit OTP
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+/* =========================
+   FORGOT PASSWORD (ADMIN)
+========================= */
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ msg: "Email is required" });
+
+    const admin = await Admin.findOne({ email });
+    if (!admin) return res.status(404).json({ msg: "Admin with this email not found" });
+
+    const otp = generateOTP();
+    admin.otp = otp;
+    admin.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+    await admin.save();
+
+    const sendEmail = (await import("../utils/sendEmail.js")).default;
+    const htmlMessage = `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2>Password Reset Request</h2>
+        <p>You requested to reset your Admin password. Use the following OTP to proceed:</p>
+        <h1 style="background: #f4f4f4; padding: 15px; display: inline-block; letter-spacing: 5px; color: #333;">${otp}</h1>
+        <p>This code will expire in 10 minutes.</p>
+      </div>
+    `;
+
+    await sendEmail({
+      email: admin.email,
+      subject: "ResuMatch - Admin Password Reset",
+      html: htmlMessage
+    });
+
+    res.json({ msg: "Password reset OTP sent to your email", adminId: admin._id });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+
+/* =========================
+   RESET PASSWORD (ADMIN)
+========================= */
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    
+    if (!otp || !newPassword || !email) return res.status(400).json({ msg: "Email, OTP and new password are required" });
+
+    const admin = await Admin.findOne({ email });
+    if (!admin) return res.status(404).json({ msg: "Admin not found" });
+
+    if (admin.otp !== otp) return res.status(400).json({ msg: "Invalid OTP" });
+    if (new Date() > new Date(admin.otpExpires)) return res.status(400).json({ msg: "OTP has expired" });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    admin.password = hashedPassword;
+    admin.otp = null;
+    admin.otpExpires = null;
+    await admin.save();
+
+    res.json({ msg: "Password reset successfully. You can now login." });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ msg: "Server error" });
+  }
+};

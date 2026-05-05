@@ -25,6 +25,10 @@ const userSchema = new mongoose.Schema({
   dateOfBirth: { type: Date, default: null },
   profilePhoto: { type: String, default: "" },
   bio: { type: String, default: "" },
+  headline: { type: String, default: "" },
+  portfolioWebsite: { type: String, default: "" },
+  linkedinProfile: { type: String, default: "" },
+  githubProfile: { type: String, default: "" },
   
   // Profile Documents
   documents: [profileDocumentSchema],
@@ -45,6 +49,12 @@ const userSchema = new mongoose.Schema({
     weeklyDigest: { type: Boolean, default: true }
   },
   savedJobs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Job" }],
+  
+  // OTP Verification
+  otp: { type: String, default: null },
+  otpExpires: { type: Date, default: null },
+  isEmailVerified: { type: Boolean, default: false },
+
   createdAt: { type: Date, default: Date.now }
 });
 

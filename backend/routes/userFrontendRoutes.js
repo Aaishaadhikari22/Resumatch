@@ -9,6 +9,10 @@ import MatchingSettings from "../models/MatchingSettings.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
+import mammoth from "mammoth";
 import {
   getDashboardStats,
   getMyResume,
@@ -61,15 +65,132 @@ router.get("/dashboard", getDashboardStats);
 // RESUME
 router.get("/resume", getMyResume);
 router.post("/resume", updateResume);
+
+// Generate resume from profile data automatically
+router.post("/resume/generate-from-profile", async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId);
+    
+    // Check if resume exists
+    let resume = await Resume.findOne({ user: userId });
+    
+    if (!resume) {
+      // Create new resume from scratch with default values
+      resume = new Resume({
+        user: userId,
+        title: user.headline || "My Resume",
+        resumeUrl: "auto-generated",
+        skills: [],
+        workExperiences: [],
+        educationHistory: [],
+        languages: [],
+        extractedText: ""
+      });
+    }
+    
+    // Always set resumeUrl to auto-generated if not already a PDF upload
+    if (!resume.resumeUrl || resume.resumeUrl === "pending") {
+      resume.resumeUrl = "auto-generated";
+    }
+    
+    if (!resume.title) {
+      resume.title = user.headline || "My Resume";
+    }
+    
+    // Generate extracted text from profile and resume data
+    const extractedTextParts = [];
+    
+    // Add basic profile info
+    if (user.name) extractedTextParts.push(`Name: ${user.name}`);
+    if (user.headline) extractedTextParts.push(`Headline: ${user.headline}`);
+    if (user.bio) extractedTextParts.push(`Summary: ${user.bio}`);
+    if (user.phone) extractedTextParts.push(`Phone: ${user.phone}`);
+    if (user.email) extractedTextParts.push(`Email: ${user.email}`);
+    if (user.city) extractedTextParts.push(`Location: ${user.city}`);
+    
+    // Add skills
+    if (resume.skills && resume.skills.length > 0) {
+      extractedTextParts.push(`Skills: ${resume.skills.join(", ")}`);
+    }
+    
+    // Add work experiences
+    if (resume.workExperiences && resume.workExperiences.length > 0) {
+      extractedTextParts.push("Work Experience:");
+      resume.workExperiences.forEach(exp => {
+        extractedTextParts.push(`${exp.position} at ${exp.company} (${new Date(exp.startDate).getFullYear()} - ${exp.endDate ? new Date(exp.endDate).getFullYear() : "Present"})`);
+        if (exp.description) extractedTextParts.push(exp.description);
+      });
+    }
+    
+    // Add education
+    if (resume.educationHistory && resume.educationHistory.length > 0) {
+      extractedTextParts.push("Education:");
+      resume.educationHistory.forEach(edu => {
+        extractedTextParts.push(`${edu.degree} in ${edu.fieldOfStudy} from ${edu.institution}`);
+      });
+    }
+    
+    // Add languages
+    if (resume.languages && resume.languages.length > 0) {
+      extractedTextParts.push(`Languages: ${resume.languages.join(", ")}`);
+    }
+    
+    resume.extractedText = extractedTextParts.join(" ");
+    
+    await resume.save();
+    
+    res.json({ msg: "Resume auto-generated from profile successfully", resume });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: err.message });
+  }
+});
+
 router.post("/resume/upload", upload.single("resume"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ msg: "No file uploaded" });
     }
-    // Return the filepath to be saved into the user's resume data
+    
     const resumeUrl = `/uploads/documents/${req.file.filename}`;
+    let extractedText = "";
+
+    try {
+      // PDF Parsing
+      if (req.file.mimetype === "application/pdf") {
+        const dataBuffer = fs.readFileSync(req.file.path);
+        const pdfData = await pdfParse(dataBuffer);
+        extractedText = pdfData.text || "";
+      }
+      // DOCX Parsing
+      else if (req.file.mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || req.file.mimetype === "application/msword") {
+        const docData = await mammoth.extractRawText({ path: req.file.path });
+        extractedText = docData.value || "";
+      }
+    } catch (parseError) {
+      console.error("Error parsing document:", parseError);
+      // We continue even if parsing fails, so user still has their document uploaded
+    }
+
+    // Immediately save or update the Resume entry with extractedText
+    let resume = await Resume.findOne({ user: req.user._id });
+    if (!resume) {
+      resume = new Resume({
+        user: req.user._id,
+        title: "My Resume",
+        resumeUrl: resumeUrl,
+        extractedText: extractedText
+      });
+    } else {
+      resume.resumeUrl = resumeUrl;
+      if (extractedText) resume.extractedText = extractedText;
+    }
+    await resume.save();
+
     res.json({ msg: "Resume uploaded successfully", resumeUrl });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ msg: err.message });
   }
 });
@@ -98,7 +219,10 @@ router.get("/profile", async (req, res) => {
 // Update own profile
 router.put("/profile", async (req, res) => {
   try {
-    const { name, email, phone, city, address, gender } = req.body;
+    const { 
+      name, email, phone, city, address, gender, bio, dateOfBirth,
+      headline, portfolioWebsite, linkedinProfile, githubProfile 
+    } = req.body;
     const user = await User.findById(req.user._id);
     
     if (name !== undefined) user.name = name;
@@ -107,14 +231,71 @@ router.put("/profile", async (req, res) => {
     if (city !== undefined) user.city = city;
     if (address !== undefined) user.address = address;
     if (gender !== undefined) user.gender = gender;
+    if (bio !== undefined) user.bio = bio;
+    if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth;
+    if (headline !== undefined) user.headline = headline;
+    if (portfolioWebsite !== undefined) user.portfolioWebsite = portfolioWebsite;
+    if (linkedinProfile !== undefined) user.linkedinProfile = linkedinProfile;
+    if (githubProfile !== undefined) user.githubProfile = githubProfile;
 
     // Check completion status
     if (user.phone) user.profileCompletion.isPhoneVerified = true;
     if (user.address && user.city) user.profileCompletion.isAddressCompleted = true;
 
     await user.save();
-    // Re-calculate or let other systems calculate overall completion percentage
-    res.json({ msg: "Profile updated", user: { name: user.name, email: user.email, phone: user.phone, city: user.city, address: user.address, gender: user.gender } });
+
+    // Ensure resume text is updated when profile details change
+    let resume = await Resume.findOne({ user: user._id });
+    const profileTextParts = [];
+    if (user.name) profileTextParts.push(`Name: ${user.name}`);
+    if (user.headline) profileTextParts.push(`Headline: ${user.headline}`);
+    if (user.bio) profileTextParts.push(`Summary: ${user.bio}`);
+    if (user.phone) profileTextParts.push(`Phone: ${user.phone}`);
+    if (user.email) profileTextParts.push(`Email: ${user.email}`);
+    if (user.city) profileTextParts.push(`Location: ${user.city}`);
+
+    if (resume) {
+      const resumeText = [
+        ...profileTextParts,
+        resume.skills && resume.skills.length > 0 ? `Skills: ${resume.skills.join(", ")}` : null,
+        resume.workExperiences && resume.workExperiences.length > 0 ? "Work Experience:" : null,
+        ...(resume.workExperiences || []).map(exp => {
+          const start = exp.startDate ? new Date(exp.startDate).getFullYear() : "";
+          const end = exp.endDate ? new Date(exp.endDate).getFullYear() : "Present";
+          return `${exp.position || ""} at ${exp.company || ""} (${start} - ${end}) ${exp.description || ""}`;
+        }),
+        resume.educationHistory && resume.educationHistory.length > 0 ? "Education:" : null,
+        ...(resume.educationHistory || []).map(edu => `${edu.degree || ""} in ${edu.fieldOfStudy || ""} from ${edu.institution || ""}`),
+        resume.languages && resume.languages.length > 0 ? `Languages: ${resume.languages.join(", ")}` : null
+      ].filter(Boolean).join(" ");
+
+      resume.extractedText = resumeText;
+      if (!resume.resumeUrl) resume.resumeUrl = "auto-generated";
+      await resume.save();
+    } else if (profileTextParts.length > 0) {
+      await Resume.create({
+        user: user._id,
+        title: user.headline || "My Resume",
+        resumeUrl: "auto-generated",
+        skills: [],
+        experience: 0,
+        education: "Any",
+        extractedText: profileTextParts.join(" "),
+        workExperiences: [],
+        educationHistory: [],
+        languages: []
+      });
+    }
+
+    res.json({ 
+      msg: "Profile updated", 
+      user: { 
+        name: user.name, email: user.email, phone: user.phone, city: user.city, 
+        address: user.address, gender: user.gender, bio: user.bio, dateOfBirth: user.dateOfBirth,
+        headline: user.headline, portfolioWebsite: user.portfolioWebsite, 
+        linkedinProfile: user.linkedinProfile, githubProfile: user.githubProfile 
+      } 
+    });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
@@ -164,7 +345,11 @@ router.get("/notifications", async (req, res) => {
 router.put("/notifications", async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    user.notificationPrefs = { ...user.notificationPrefs, ...req.body };
+    if (req.body.jobAlerts !== undefined) user.notificationPrefs.jobAlerts = req.body.jobAlerts;
+    if (req.body.applicationUpdates !== undefined) user.notificationPrefs.applicationUpdates = req.body.applicationUpdates;
+    if (req.body.matchNotifications !== undefined) user.notificationPrefs.matchNotifications = req.body.matchNotifications;
+    if (req.body.weeklyDigest !== undefined) user.notificationPrefs.weeklyDigest = req.body.weeklyDigest;
+    user.markModified('notificationPrefs');
     await user.save();
     res.json({ msg: "Notification preferences saved", notificationPrefs: user.notificationPrefs });
   } catch (err) {
@@ -288,7 +473,6 @@ function calculateCompletion(user) {
     phone: !!user.phone,
     address: !!user.address,
     city: !!user.city,
-    profilePhoto: !!user.profilePhoto,
     documents: user.documents && user.documents.length > 0
   };
 

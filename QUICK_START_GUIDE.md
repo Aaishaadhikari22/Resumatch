@@ -191,7 +191,7 @@ router.patch("/profile", updateUserProfile);
 
 **1. Add Profile Completion to User Settings Page**
 ```jsx
-// frontend/frontend/src/pages/user/UserSettings.jsx
+// frontend/src/pages/user/UserSettings.jsx
 import ProfileCompletion from "../../components/ProfileCompletion";
 
 export default function UserSettings() {

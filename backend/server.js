@@ -1,4 +1,5 @@
 import express from "express";
+import http from "http";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -15,6 +16,7 @@ import userFrontendRoutes from "./routes/userFrontendRoutes.js";
 import employerAuthRoutes from "./routes/employerAuthRoutes.js";
 import employerFrontendRoutes from "./routes/employerFrontendRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import { initSocket } from "./utils/socketServer.js";
 
 
 dotenv.config();
@@ -65,7 +67,9 @@ app.get("/", (req,res)=>{
 /* ================= SERVER ================= */
 
 const PORT = 5000;
+const server = http.createServer(app);
+initSocket(server);
 
-app.listen(PORT, ()=>{
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

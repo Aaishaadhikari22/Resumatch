@@ -3,75 +3,68 @@ import User from "../models/User.js";
 import Admin from "../models/Admin.js";
 import Employer from "../models/Employer.js";
 
+const normalizeRole = (role) => {
+  const value = String(role || "").trim().toLowerCase();
+  if (["user", "job_seeker", "jobseeker", "candidate", "member", "applicant"].includes(value)) return "user";
+  if (["employer", "company", "company_representative", "employer_manager"].includes(value)) return "employer";
+  if (["super_admin", "superadmin", "admin"].includes(value)) return "super_admin";
+  if (["sector_admin", "sectoradmin"].includes(value)) return "sector_admin";
+  return value;
+};
+
+const isAccountActive = (user) => {
+  if (!user || !user.status) return true;
+  const inactiveStates = new Set(["suspended", "blocked", "rejected", "inactive", "pending"]);
+  return !inactiveStates.has(String(user.status).trim().toLowerCase());
+};
+
 const auth = (roles = []) => {
   return async (req, res, next) => {
     try {
-      const token = req.headers.authorization?.split(" ")[1];
+      const authHeader = req.headers.authorization || "";
+      const token = authHeader.startsWith("Bearer ") ? authHeader.split(" ")[1] : null;
 
       if (!token) {
         return res.status(401).json({ msg: "No token provided" });
       }
 
-      console.log("[Auth Debug] Token received:", token ? token.substring(0, 20) + "..." : "NONE");
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log("[Auth Debug] Decoded Token Payload:", JSON.stringify(decoded));
+      const userId = decoded?.id;
+      if (!userId) {
+        return res.status(401).json({ msg: "Invalid token payload" });
+      }
 
-      let user = await User.findById(decoded.id);
-      if (user) {
-         console.log(`[Auth Debug] User found in 'users' collection. Email: ${user.email}, Role: ${user.role}`);
-      } else {
-         console.log(`[Auth Debug] User NOT found in 'users' collection with ID: ${decoded.id}. Trying 'admins'...`);
-         user = await Admin.findById(decoded.id);
-         if (user) {
-            console.log(`[Auth Debug] User found in 'admins' collection. Email: ${user.email}, Role: ${user.role}`);
-         } else {
-            console.log(`[Auth Debug] User NOT found in 'admins' collection. Trying 'employers'...`);
-            user = await Employer.findById(decoded.id);
-            if (user) {
-               console.log(`[Auth Debug] User found in 'employers' collection. Email: ${user.email}, Role: ${user.role}`);
-            } else {
-               console.log(`[Auth Debug] User NOT found in any collection.`);
-            }
-         }
+      let user = await User.findById(userId);
+      if (!user) {
+        user = await Admin.findById(userId);
+      }
+      if (!user) {
+        user = await Employer.findById(userId);
       }
 
       if (!user) {
-        console.log(`[Auth Debug] 401 Unauthorized - User lookup failed for ID: ${decoded.id}`);
         return res.status(401).json({ msg: "User not found" });
       }
 
-      // role check - case insensitive and trimmed
-      const userRole = (user.role || "").trim().toLowerCase();
-      const requiredRoles = roles.map(r => r.trim().toLowerCase());
+      if (!isAccountActive(user)) {
+        return res.status(403).json({ msg: "Account is not active. Contact support." });
+      }
 
-      console.log(`[Auth Debug] Checking permissions for ${user.email}:`);
-      console.log(`- Required Roles: [${requiredRoles.join(", ")}]`);
-      console.log(`- Actual Role: '${userRole}' (raw: '${user.role}')`);
+      const actualRole = normalizeRole(user.role);
+      const requiredRoles = Array.isArray(roles)
+        ? roles.map(normalizeRole).filter(Boolean)
+        : [normalizeRole(roles)].filter(Boolean);
 
-      if (requiredRoles.length && !requiredRoles.includes(userRole)) {
-        // Conceptual bypass for common user-level terms
-        const isUserType = ["user", "job_seeker", "jobseeker", "candidate", "member", "applicant"].includes(userRole) || /user/i.test(userRole);
-        const needsUserType = requiredRoles.includes("user") || requiredRoles.includes("job_seeker");
-
-        console.log(`- Conceptual Check: isUserType=${isUserType}, needsUserType=${needsUserType}`);
-
-        if (needsUserType && isUserType) {
-            console.log("-> [Auth Debug] ALLOWED via conceptual match.");
-        } else {
-            console.log("-> [Auth Debug] DENIED: Role mismatch and no bypass.");
-            return res.status(403).json({ msg: "Access denied: Unauthorized role" });
-        }
-      } else {
-        console.log("-> [Auth Debug] ALLOWED: Exact role match or no requirements.");
+      if (requiredRoles.length && !requiredRoles.includes(actualRole)) {
+        return res.status(403).json({ msg: "Access denied: Unauthorized role" });
       }
 
       req.user = user;
       next();
     } catch (err) {
-      console.error("[Auth Debug] AUTH ERROR:", err.message);
-      res.status(401).json({ msg: "Invalid token" });
+      return res.status(401).json({ msg: "Invalid token" });
     }
   };
 };
 
-export default auth; // ⭐ THIS IS THE IMPORTANT PART
+export default auth;

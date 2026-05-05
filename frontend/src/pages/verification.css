@@ -1,0 +1,361 @@
+.verification-container {
+    padding: 24px;
+    background-color: #f3f2ef;
+    min-height: calc(100vh - 40px);
+}
+
+.verification-page {
+    padding: 24px;
+    background-color: #f3f2ef;
+    min-height: calc(100vh - 40px);
+}
+
+.page-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 24px 0;
+}
+
+.verification-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    background: white;
+    padding: 8px 12px;
+    border-radius: 10px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+}
+
+.verification-tab {
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #64748b;
+    border: none;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    background: transparent;
+}
+
+.verification-tab.active {
+    color: white;
+    background: #3b82f6;
+}
+
+.verification-tab:hover:not(.active) {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+.tab-btn {
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+    color: #64748b;
+}
+
+.tab-btn.active {
+    background: #3b82f6;
+    color: white;
+}
+
+.tab-btn:hover {
+    background: #e2e8f0;
+}
+
+.tab-content {
+    background: white;
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+}
+
+.users-content {
+    padding: 0;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+    padding: 24px;
+}
+
+.stat-card {
+    padding: 20px;
+    border-radius: 8px;
+    color: white;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-card.pending {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+.stat-card.verified {
+    background: linear-gradient(135deg, #34d399, #10b981);
+}
+
+.stat-card.rejected {
+    background: linear-gradient(135deg, #ef5350, #f44336);
+}
+
+.stat-number {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.stat-label {
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.95;
+}
+
+/* Filter Tabs */
+.filter-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 0 24px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.filter-btn {
+    padding: 12px 20px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.filter-btn.active {
+    color: #3b82f6;
+    border-bottom-color: #3b82f6;
+}
+
+.filter-btn:hover {
+    color: #1e293b;
+}
+
+/* Search Box */
+.search-box {
+    padding: 0 24px 16px 24px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Verification Table */
+.verification-table {
+    overflow-x: auto;
+    padding: 0 24px 24px 24px;
+}
+
+.verification-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.verification-table thead {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.verification-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.verification-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 14px;
+    color: #334155;
+}
+
+.verification-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.user-name {
+    font-weight: 500;
+}
+
+.doc-count {
+    text-align: center;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+.badge-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-verified {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.badge-rejected {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Progress Bar */
+.progress-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+}
+
+.progress-fill {
+    flex: 1;
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    overflow: hidden;
+    background: linear-gradient(90deg, #3b82f6, #2563eb);
+}
+
+.empty-state {
+    padding: 40px;
+    text-align: center;
+    color: #334155;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.progress-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    min-width: 35px;
+}
+
+/* Actions Cell */
+.actions-cell {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.approve-btn {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.approve-btn:hover:not(:disabled) {
+    background: #a7f3d0;
+}
+
+.reject-btn {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.reject-btn:hover:not(:disabled) {
+    background: #fecaca;
+}
+
+.action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #94a3b8;
+    font-size: 15px;
+}
+
+.verification-card {
+    background: white;
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+        margin-bottom: 16px;
+        padding: 16px;
+    }
+
+    .actions-cell {
+        flex-direction: column;
+    }
+
+    .action-btn {
+        width: 100%;
+    }
+
+    .verification-table {
+        padding: 0;
+    }
+
+    .verification-table th,
+    .verification-table td {
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    .filter-tabs {
+        overflow-x: auto;
+        padding: 0 16px;
+    }
+}

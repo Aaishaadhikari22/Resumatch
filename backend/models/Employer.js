@@ -15,7 +15,7 @@ const employerSchema = new mongoose.Schema({
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
   role: { type: String, default: "employer" },
-  status: { type: String, default: "pending" }, // pending / approved / rejected
+  status: { type: String, default: "approved" }, // approved / rejected
   verifiedBy: String,
 
   // Company profile
@@ -54,6 +54,11 @@ const employerSchema = new mongoose.Schema({
     applicationStatusChange: { type: Boolean, default: true },
     weeklyDigest: { type: Boolean, default: true }
   },
+
+  // OTP Verification
+  otp: { type: String, default: null },
+  otpExpires: { type: Date, default: null },
+  isEmailVerified: { type: Boolean, default: false },
 
   createdAt: { type: Date, default: Date.now }
 });

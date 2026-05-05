@@ -3,6 +3,7 @@ import Resume from "../models/Resume.js";
 import Job from "../models/Job.js";
 import Application from "../models/Application.js";
 import Notification from "../models/Notification.js";
+import { emitNotification, emitDashboardRefreshToUser, emitDashboardRefreshToEmployer, emitDashboardRefreshToAdmins } from "../utils/socketServer.js";
 import { calculateComprehensiveMatch } from "../utils/skillMatching.js";
 import { validateUserProfile, canUserApply } from "../utils/profileValidator.js";
 
@@ -19,18 +20,12 @@ export const getDashboardStats = async (req, res) => {
     
     // Find matched jobs conceptually
     let matchedJobsCount = 0;
-    if (resume && resume.skills && resume.skills.length > 0) {
-      const activeJobs = await Job.find({ status: "approved" });
-      const userSkills = resume.skills.map(s => s.toLowerCase());
+    if (resume) {
+      const activeJobs = await Job.find({ jobStatus: "approved" });
       
       activeJobs.forEach(job => {
-        const jobDesc = ((job.title || "") + " " + (job.description || "")).toLowerCase();
-        let matchCount = 0;
-        userSkills.forEach(skill => {
-          if (jobDesc.includes(skill)) matchCount++;
-        });
-        const score = Math.round((matchCount / userSkills.length) * 100);
-        if (score >= 50) matchedJobsCount++; // 50% or above threshold
+        const matchResult = calculateComprehensiveMatch(job, resume);
+        if (matchResult.totalScore >= 50) matchedJobsCount++; // 50% or above threshold
       });
     }
 
@@ -73,39 +68,107 @@ export const getDashboardStats = async (req, res) => {
 export const getMyResume = async (req, res) => {
   try {
     const resume = await Resume.findOne({ user: req.user._id });
-    res.json(resume || { skills: [], experience: 0 });
+    res.json(resume || { 
+      skills: [], experience: 0, 
+      workExperiences: [], educationHistory: [], languages: [] 
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// Update/Create Resume Skills and Info
+// Helper function to generate extracted text from resume and profile data
+const buildExtractedText = (user, skills, workExperiences, educationHistory, languages) => {
+  const extractedTextParts = [];
+
+  if (user?.name) extractedTextParts.push(`Name: ${user.name}`);
+  if (user?.headline) extractedTextParts.push(`Headline: ${user.headline}`);
+  if (user?.bio) extractedTextParts.push(`Summary: ${user.bio}`);
+  if (user?.phone) extractedTextParts.push(`Phone: ${user.phone}`);
+  if (user?.email) extractedTextParts.push(`Email: ${user.email}`);
+  if (user?.city) extractedTextParts.push(`Location: ${user.city}`);
+
+  if (skills && skills.length > 0) {
+    extractedTextParts.push(`Skills: ${skills.join(", ")}`);
+  }
+
+  if (workExperiences && workExperiences.length > 0) {
+    extractedTextParts.push("Work Experience:");
+    workExperiences.forEach(exp => {
+      const start = exp.startDate ? new Date(exp.startDate).getFullYear() : "";
+      const end = exp.endDate ? new Date(exp.endDate).getFullYear() : "Present";
+      extractedTextParts.push(`${exp.position || ""} at ${exp.company || ""} (${start} - ${end})`);
+      if (exp.description) extractedTextParts.push(exp.description);
+    });
+  }
+
+  if (educationHistory && educationHistory.length > 0) {
+    extractedTextParts.push("Education:");
+    educationHistory.forEach(edu => {
+      extractedTextParts.push(`${edu.degree || ""} in ${edu.fieldOfStudy || ""} from ${edu.institution || ""}`);
+    });
+  }
+
+  if (languages && languages.length > 0) {
+    extractedTextParts.push(`Languages: ${languages.join(", ")}`);
+  }
+
+  return extractedTextParts.filter(Boolean).join(" ");
+};
+
+// Update/Create Resume Skills and Info - Auto-generates resume from profile
 export const updateResume = async (req, res) => {
   try {
-    const { title, skills, experience, education, resumeUrl } = req.body;
+    const { 
+      title, skills, experience, education, resumeUrl,
+      workExperiences, educationHistory, languages, expectedSalary 
+    } = req.body;
+    
+    const user = await User.findById(req.user._id);
     let resume = await Resume.findOne({ user: req.user._id });
 
+    const extractedText = buildExtractedText(user, skills || [], workExperiences || [], educationHistory || [], languages || []);
+
     if (resume) {
-      resume.title = title || resume.title;
+      resume.title = title || resume.title || user?.headline || "My Resume";
       resume.skills = skills || resume.skills;
       resume.experience = experience !== undefined ? experience : resume.experience;
       resume.education = education || resume.education;
-      if (resumeUrl) resume.resumeUrl = resumeUrl;
+      
+      if (resumeUrl) {
+        resume.resumeUrl = resumeUrl;
+      } else if (resume.resumeUrl === "pending" || !resume.resumeUrl) {
+        resume.resumeUrl = "auto-generated";
+      }
+      
+      resume.extractedText = extractedText;
+      
+      if (workExperiences !== undefined) resume.workExperiences = workExperiences;
+      if (educationHistory !== undefined) resume.educationHistory = educationHistory;
+      if (languages !== undefined) resume.languages = languages;
+      if (expectedSalary !== undefined) resume.expectedSalary = expectedSalary;
+
       await resume.save();
     } else {
       resume = new Resume({
         user: req.user._id,
-        title: title || "My Resume",
+        title: title || user?.headline || "My Resume",
         skills: skills || [],
         experience: experience || 0,
         education: education || "Any",
-        resumeUrl: resumeUrl || "pending"
+        resumeUrl: resumeUrl || "auto-generated",
+        extractedText: extractedText,
+        workExperiences: workExperiences || [],
+        educationHistory: educationHistory || [],
+        languages: languages || [],
+        expectedSalary: expectedSalary || 0
       });
       await resume.save();
     }
 
     res.json({ msg: "Resume updated successfully", resume });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -136,7 +199,7 @@ export const getRecommendedJobs = async (req, res) => {
 
     const recommendedJobs = activeJobs.map(job => {
       let matchResult = { totalScore: 0, breakdown: {}, details: {} };
-      if (resume && resume.skills && resume.skills.length > 0) {
+      if (resume) {
         matchResult = calculateComprehensiveMatch(job, resume);
       }
       
@@ -183,6 +246,16 @@ export const applyForJob = async (req, res) => {
       return res.status(400).json({ msg: "Please create a resume before applying." });
     }
 
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ msg: "Job not found." });
+    }
+
+    const employerRef = job.employer || employerId;
+    if (!employerRef) {
+      return res.status(400).json({ msg: "Employer not found for this job." });
+    }
+
     // Validate user profile completeness
     const user = await User.findById(req.user._id);
     const profileValidation = validateUserProfile(user);
@@ -199,25 +272,33 @@ export const applyForJob = async (req, res) => {
       });
     }
 
+    const matchResult = calculateComprehensiveMatch(job, resume);
+
     const application = new Application({
       user: req.user._id,
       job: jobId,
-      employer: employerId,
+      employer: employerRef,
       status: "applied",
+      similarityScore: matchResult.totalScore,
       applicantProfileSnapshot: profileValidation.snapshot,
       documents: user.documents || []
     });
 
     await application.save();
 
-    await Notification.create({
-      recipient: employerId,
+    const notification = await Notification.create({
+      recipient: employerRef,
       onModel: 'Employer',
       type: 'new_applicant',
       title: 'New Job Application',
       message: `A candidate has applied for your job listing.`,
       link: `/employer/applicants`
     });
+
+    emitNotification(employerRef, 'Employer', notification);
+    emitDashboardRefreshToEmployer(employerRef);
+    emitDashboardRefreshToAdmins();
+    emitDashboardRefreshToUser(req.user._id);
 
     // Return application with any warnings
     res.json({ 
@@ -244,6 +325,10 @@ export const getMyApplications = async (req, res) => {
     }
 
     const appsWithScore = applications.map(app => {
+      if (app.similarityScore !== undefined && app.similarityScore !== null) {
+        return { ...app._doc, similarityScore: app.similarityScore };
+      }
+
       let score = 0;
       if (app.job) {
          const matchResult = calculateComprehensiveMatch(app.job, resume);

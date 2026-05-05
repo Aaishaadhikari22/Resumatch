@@ -1,110 +1,163 @@
 /**
  * Skill Matching Utility
- * Provides precise skill matching algorithms for job-resume matching
- * 
- * CORE FEATURE:
- * The similarity score in the ResuMatch system is calculated using TF-IDF (Term Frequency–Inverse Document Frequency)
- * and cosine similarity techniques. First, TF-IDF is used to convert the text data from job seekers’ skills and job 
- * descriptions into numerical vectors by assigning importance to each word based on how frequently it appears in a 
- * document and how unique it is across all documents. This helps highlight important keywords while reducing the weight 
- * of common words. After that, cosine similarity is applied to measure how similar these two vectors are by calculating 
- * the cosine of the angle between them. The result is a value between 0 and 1, where a higher value indicates a stronger 
- * match between the candidate’s skills and the job requirements. This score is then converted into a percentage and used 
- * to rank candidates or jobs based on their relevance.
+ * Provides precise skill and document matching algorithms for job-resume matching using NLP
  */
 
 import natural from 'natural';
 
-/**
- * Calculate similarity score between job skills and resume skills
- * Uses TF-IDF and Cosine Similarity
- * 
- * @param {Array<string>} jobSkills - Required skills for the job
- * @param {Array<string>} resumeSkills - Skills listed on resume
- * @returns {Object} { score: 0-100, matchedSkills: [], unmatchedSkills: [] }
- */
-export const calculateSimilarityScore = (jobSkills = [], resumeSkills = []) => {
-  if (jobSkills.length === 0) return { score: 100, matchedSkills: [], unmatchedSkills: [] };
-  if (resumeSkills.length === 0) return { score: 0, matchedSkills: [], unmatchedSkills: jobSkills };
+// Setup tokenizers and stemmers
+const tokenizer = new natural.WordTokenizer();
+const stemmer = natural.PorterStemmer;
+const stopWordsList = Array.isArray(natural.stopwords) ? natural.stopwords : ["i","me","my","myself","we","our","ours","ourselves","you","your","yours","yourself","yourselves","he","him","his","himself","she","her","hers","herself","it","its","itself","they","them","their","theirs","themselves","what","which","who","whom","this","that","these","those","am","is","are","was","were","be","been","being","have","has","had","having","do","does","did","doing","a","an","the","and","but","if","or","because","as","until","while","of","at","by","for","with","about","against","between","into","through","during","before","after","above","below","to","from","up","down","in","out","on","off","over","under","again","further","then","once","here","there","when","where","why","how","all","any","both","each","few","more","most","other","some","such","no","nor","not","only","own","same","so","than","too","very","s","t","can","will","just","don","should","now"];
 
+/**
+ * Preprocess text by tokenizing, removing stopwords, and stemming
+ */
+export const preprocessText = (text) => {
+  if (!text) return [];
+  const tokens = tokenizer.tokenize(text.toLowerCase()) || [];
+  return tokens
+    .filter(token => !stopWordsList.includes(token))
+    .map(token => stemmer.stem(token));
+};
+
+/**
+ * Compute similarity between two texts using TF-IDF and Cosine Similarity
+ */
+export const computeTextSimilarity = (text1, text2) => {
+  const tokens1 = preprocessText(text1);
+  const tokens2 = preprocessText(text2);
+  
+  if (tokens1.length === 0 || tokens2.length === 0) return 0;
+  
   const TfIdf = natural.TfIdf;
   const tfidf = new TfIdf();
-
-  // Create documents for TF-IDF training
-  const jobDoc = jobSkills.join(' ').toLowerCase();
-  const resumeDoc = resumeSkills.join(' ').toLowerCase();
-
-  // Add documents to corpus
-  tfidf.addDocument(jobDoc);
-  tfidf.addDocument(resumeDoc);
-
-  // Extract vocabulary from both documents
-  const tokenizer = new natural.WordTokenizer();
-  const jobTokens = tokenizer.tokenize(jobDoc) || [];
-  const resumeTokens = tokenizer.tokenize(resumeDoc) || [];
-  const vocabulary = Array.from(new Set([...jobTokens, ...resumeTokens]));
-
-  // Create vectors for both documents
-  const jobVector = new Array(vocabulary.length).fill(0);
-  const resumeVector = new Array(vocabulary.length).fill(0);
-
+  
+  tfidf.addDocument(tokens1.join(' '));
+  tfidf.addDocument(tokens2.join(' '));
+  
+  const vocabulary = Array.from(new Set([...tokens1, ...tokens2]));
+  const vector1 = new Array(vocabulary.length).fill(0);
+  const vector2 = new Array(vocabulary.length).fill(0);
+  
   vocabulary.forEach((term, index) => {
     tfidf.tfidfs(term, function(docIndex, measure) {
-      if (docIndex === 0) jobVector[index] = measure; // Job Document
-      if (docIndex === 1) resumeVector[index] = measure; // Resume Document
+      if (docIndex === 0) vector1[index] = measure;
+      if (docIndex === 1) vector2[index] = measure;
     });
   });
-
-  // Calculate Cosine Similarity
+  
   let dotProduct = 0;
-  let jobMagnitude = 0;
-  let resumeMagnitude = 0;
-
+  let mag1 = 0;
+  let mag2 = 0;
+  
   for (let i = 0; i < vocabulary.length; i++) {
-    dotProduct += jobVector[i] * resumeVector[i];
-    jobMagnitude += jobVector[i] * jobVector[i];
-    resumeMagnitude += resumeVector[i] * resumeVector[i];
-  }
-
-  jobMagnitude = Math.sqrt(jobMagnitude);
-  resumeMagnitude = Math.sqrt(resumeMagnitude);
-
-  let cosineSimilarity = 0;
-  if (jobMagnitude !== 0 && resumeMagnitude !== 0) {
-    cosineSimilarity = dotProduct / (jobMagnitude * resumeMagnitude);
+    dotProduct += vector1[i] * vector2[i];
+    mag1 += vector1[i] * vector1[i];
+    mag2 += vector2[i] * vector2[i];
   }
   
-  // Calculate final percentage score
-  const score = Math.round(cosineSimilarity * 100);
+  mag1 = Math.sqrt(mag1);
+  mag2 = Math.sqrt(mag2);
+  
+  if (mag1 === 0 || mag2 === 0) return 0;
+  return dotProduct / (mag1 * mag2);
+};
 
-  // Fallback direct match system to populate matched/unmatched arrays
+/**
+ * Calculate similarity score based on Skills and Document Text
+ * 
+ * @param {Object} job - Full Job object
+ * @param {Object} resume - Full Resume object (and optionally User bio within)
+ * @returns {Object} { score: 0-100, matchedSkills: [], unmatchedSkills: [] }
+ */
+const normalizeSkills = (skills) => {
+  if (!skills) return [];
+  return Array.isArray(skills)
+    ? skills
+        .filter(Boolean)
+        .map((skill) => String(skill).trim())
+        .filter(Boolean)
+    : [];
+};
+
+const normalizeSkillPhrase = (skill) => {
+  const normalized = preprocessText(String(skill));
+  return normalized.join(" ");
+};
+
+const buildSkillMatch = (jobSkills, resumeSkills) => {
+  const normalizedResume = normalizeSkills(resumeSkills).map(normalizeSkillPhrase);
   const matchedSkills = [];
   const unmatchedSkills = [];
-  
-  const resumeStr = resumeDoc.toLowerCase();
-  jobSkills.forEach(skill => {
-      // Basic direct inclusion or multi part skill matching for tags
-      if (resumeStr.includes(skill.toLowerCase())) {
-          matchedSkills.push(skill);
-      } else {
-          unmatchedSkills.push(skill);
-      }
+
+  normalizeSkills(jobSkills).forEach((skill) => {
+    const normalizedJobSkill = normalizeSkillPhrase(skill);
+    if (!normalizedJobSkill) {
+      unmatchedSkills.push(skill);
+      return;
+    }
+
+    const isMatched = normalizedResume.some((resumeSkill) =>
+      resumeSkill === normalizedJobSkill ||
+      resumeSkill.includes(normalizedJobSkill) ||
+      normalizedJobSkill.includes(resumeSkill)
+    );
+
+    if (isMatched) {
+      matchedSkills.push(skill);
+    } else {
+      unmatchedSkills.push(skill);
+    }
   });
+
+  return { matchedSkills, unmatchedSkills };
+};
+
+export const calculateSimilarityScore = (jobOrSkills, resumeOrSkills) => {
+  const jobSkills = Array.isArray(jobOrSkills)
+    ? normalizeSkills(jobOrSkills)
+    : normalizeSkills(jobOrSkills?.skillsRequired || jobOrSkills?.skills);
+
+  const resumeSkills = Array.isArray(resumeOrSkills)
+    ? normalizeSkills(resumeOrSkills)
+    : normalizeSkills(resumeOrSkills?.skills);
+
+  const jobTitle = !Array.isArray(jobOrSkills) ? String(jobOrSkills?.title || "") : "";
+  const jobDescription = !Array.isArray(jobOrSkills) ? String(jobOrSkills?.description || "") : "";
+  const resumeTitle = !Array.isArray(resumeOrSkills) ? String(resumeOrSkills?.title || "") : "";
+  const resumeEducation = !Array.isArray(resumeOrSkills) ? String(resumeOrSkills?.education || "") : "";
+  const resumeBio = !Array.isArray(resumeOrSkills) ? String(resumeOrSkills?.bio || "") : "";
+  const resumeExtractedText = !Array.isArray(resumeOrSkills) ? String(resumeOrSkills?.extractedText || "") : "";
+
+  const { matchedSkills, unmatchedSkills } = buildSkillMatch(jobSkills, resumeSkills);
+
+  let skillScore = 0;
+  if (jobSkills.length === 0) {
+    skillScore = 1;
+  } else {
+    skillScore = matchedSkills.length / jobSkills.length;
+  }
+
+  const jobText = [jobTitle, jobDescription, jobSkills.join(" ")].filter(Boolean).join(" ");
+  const resumeText = [resumeTitle, resumeEducation, resumeSkills.join(" "), resumeBio, resumeExtractedText]
+    .filter(Boolean)
+    .join(" ");
+
+  const textScore = computeTextSimilarity(jobText, resumeText);
+  const combinedScore = (skillScore * 0.5) + (textScore * 0.5);
+  const score = Math.round(Math.min(100, Math.max(0, combinedScore * 100)));
 
   return { score, matchedSkills, unmatchedSkills };
 };
 
 /**
  * Calculate comprehensive match score between job requirements and resume
- * Considers skills (40%), experience (30%), and education (30%)
- * 
- * @param {Object} job - Job object with skillsRequired, minExperienceYears, educationLevel
- * @param {Object} resume - Resume object with skills, experience, education
- * @returns {Object} { totalScore: 0-100, breakdown: {skills, experience, education}, details: {} }
+ * Considers skills+text (40%), experience (30%), and education (30%)
  */
 export const calculateComprehensiveMatch = (job, resume) => {
-  // Skills matching (40% weight)
-  const skillMatch = calculateSimilarityScore(job.skillsRequired || [], resume.skills || []);
+  // Skills+Text matching (40% weight)
+  const skillMatch = calculateSimilarityScore(job, resume);
   const skillScore = skillMatch.score * 0.4;
 
   // Experience matching (30% weight)
@@ -113,15 +166,15 @@ export const calculateComprehensiveMatch = (job, resume) => {
   const userExp = resume.experience || 0;
   
   if (requiredExp === 0) {
-    experienceScore = 100; // No experience required
+    experienceScore = 100;
   } else if (userExp >= requiredExp) {
-    experienceScore = 100; // Meets or exceeds requirement
+    experienceScore = 100;
   } else if (userExp >= requiredExp * 0.7) {
-    experienceScore = 70; // Close to requirement
+    experienceScore = 70;
   } else if (userExp >= requiredExp * 0.5) {
-    experienceScore = 50; // Halfway there
+    experienceScore = 50;
   } else {
-    experienceScore = Math.max(0, (userExp / requiredExp) * 100); // Proportional
+    experienceScore = Math.max(0, (userExp / requiredExp) * 100);
   }
   experienceScore *= 0.3;
 
@@ -132,13 +185,13 @@ export const calculateComprehensiveMatch = (job, resume) => {
   const userLevel = educationLevels.indexOf(resume.education || "Any");
   
   if (requiredLevel === 0) {
-    educationScore = 100; // Any education accepted
+    educationScore = 100;
   } else if (userLevel >= requiredLevel) {
-    educationScore = 100; // Meets or exceeds requirement
+    educationScore = 100;
   } else if (userLevel === requiredLevel - 1) {
-    educationScore = 70; // One level below
+    educationScore = 70;
   } else {
-    educationScore = 30; // Significantly below
+    educationScore = 30;
   }
   educationScore *= 0.3;
 
@@ -164,19 +217,11 @@ export const calculateComprehensiveMatch = (job, resume) => {
 
 /**
  * Match job skills against multiple resumes and return sorted results
- * Optimized for batch processing
- * 
- * @param {Array<string>} jobSkills - Job requirements
- * @param {Array<Object>} resumes - Array of resume objects with skills array
- * @returns {Array<Object>} Resumes sorted by similarity score (highest first)
  */
-export const matchResumesToJob = (jobSkills, resumes) => {
+export const matchResumesToJob = (job, resumes) => {
   return resumes
     .map(resume => {
-      const { score, matchedSkills } = calculateSimilarityScore(
-        jobSkills,
-        resume.skills || []
-      );
+      const { score, matchedSkills } = calculateSimilarityScore(job, resume);
       return {
         ...resume,
         similarityScore: score,
@@ -188,20 +233,11 @@ export const matchResumesToJob = (jobSkills, resumes) => {
 
 /**
  * Find all resumes that match job skills (threshold-based)
- * Used for job posting notifications
- * 
- * @param {Array<string>} jobSkills - Job requirements
- * @param {Array<Object>} resumes - Array of resume objects
- * @param {number} threshold - Minimum score (0-100) to be considered matching
- * @returns {Array<Object>} Matching resumes with scores
  */
-export const findMatchingResumes = (jobSkills, resumes, threshold = 50) => {
+export const findMatchingResumes = (job, resumes, threshold = 50) => {
   return resumes
     .map(resume => {
-      const { score, matchedSkills } = calculateSimilarityScore(
-        jobSkills,
-        resume.skills || []
-      );
+      const { score, matchedSkills } = calculateSimilarityScore(job, resume);
       return { resume, score, matchedSkills };
     })
     .filter(({ score }) => score >= threshold)
@@ -210,8 +246,6 @@ export const findMatchingResumes = (jobSkills, resumes, threshold = 50) => {
 
 /**
  * Get color coding for similarity scores
- * @param {number} score - Similarity score (0-100)
- * @returns {string} Color code: "green" | "orange" | "red"
  */
 export const getScoreColor = (score) => {
   if (score >= 70) return "green";
@@ -221,8 +255,6 @@ export const getScoreColor = (score) => {
 
 /**
  * Format skill list for display
- * @param {Array<string>} skills - List of skills
- * @returns {string} Comma-separated string
  */
 export const formatSkillList = (skills) => {
   return (skills || []).join(", ");

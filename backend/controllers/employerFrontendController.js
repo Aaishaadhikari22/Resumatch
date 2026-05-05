@@ -5,6 +5,8 @@ import Resume from "../models/Resume.js";
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import fs from "fs";
+import { emitNotification, emitDashboardRefreshToUser, emitDashboardRefreshToEmployer, emitDashboardRefreshToAdmins } from "../utils/socketServer.js";
 import { calculateSimilarityScore, findMatchingResumes } from "../utils/skillMatching.js";
 import { validateEmployerProfile, canEmployerAccept } from "../utils/profileValidator.js";
 
@@ -25,11 +27,26 @@ export const getDashboardStats = async (req, res) => {
     const activeJobs = await Job.countDocuments({ employer: employerId, jobStatus: "approved" });
 
     // Recent applications
-    const recentApplications = await Application.find({ employer: employerId })
+    const recentAppsData = await Application.find({ employer: employerId })
       .sort({ createdAt: -1 })
       .limit(5)
       .populate("user", "name email")
-      .populate("job", "title");
+      .populate("job", "title skillsRequired");
+
+    const recentApplications = await Promise.all(
+      recentAppsData.map(async (app) => {
+        const resume = await Resume.findOne({ user: app.user._id });
+        let similarityScore = 0;
+        if (resume && app.job) {
+          similarityScore = calculateSimilarityScore(app.job, resume).score;
+        }
+        return {
+          ...app._doc,
+          similarityScore,
+          resumeTitle: resume ? resume.title : "No resume"
+        };
+      })
+    );
 
     // Applicant Status Distribution for Chart
     const statusCounts = await Application.aggregate([
@@ -105,12 +122,12 @@ export const postJob = async (req, res) => {
 
     await job.save();
 
-    // Notify matching users
+    // Notify matching users and emit real-time updates
     const allResumes = await Resume.find({}, "user skills");
     if (skillsRequired && skillsRequired.length > 0) {
-        const matchingResumes = findMatchingResumes(skillsRequired, allResumes, 50);
+        const matchingResumes = findMatchingResumes(job, allResumes, 50);
         for (const { resume } of matchingResumes) {
-            await Notification.create({
+            const notification = await Notification.create({
                 recipient: resume.user,
                 onModel: 'User',
                 type: 'job_match',
@@ -118,8 +135,13 @@ export const postJob = async (req, res) => {
                 message: `A new job "${title}" matches your skills. Check it out!`,
                 link: '/user/recommended'
             });
+            emitNotification(resume.user, 'User', notification);
+            emitDashboardRefreshToUser(resume.user);
         }
     }
+
+    emitDashboardRefreshToEmployer(req.user._id);
+    emitDashboardRefreshToAdmins();
 
     res.status(201).json({ msg: "Job posted successfully", job });
 
@@ -160,8 +182,8 @@ export const getMyJobs = async (req, res) => {
           let totalScore = 0;
           for (const app of applications) {
             const resume = await Resume.findOne({ user: app.user });
-            if (resume && resume.skills && resume.skills.length > 0 && jobSkills.length > 0) {
-               totalScore += calculateSimilarityScore(jobSkills, resume.skills).score;
+            if (resume && job) {
+               totalScore += calculateSimilarityScore(job, resume).score;
             }
           }
           avgMatch = Math.round(totalScore / applicantCount);
@@ -221,11 +243,13 @@ export const getApplicantsForJob = async (req, res) => {
         const resume = await Resume.findOne({ user: app.user._id });
         let similarityScore = 0;
         let matchedSkills = [];
+        let unmatchedSkills = [];
 
-        if (resume && resume.skills && resume.skills.length > 0 && jobSkills.length > 0) {
-          const result = calculateSimilarityScore(jobSkills, resume.skills);
+        if (resume && job) {
+          const result = calculateSimilarityScore(job, resume);
           similarityScore = result.score;
           matchedSkills = result.matchedSkills;
+          unmatchedSkills = result.unmatchedSkills;
         }
 
         return {
@@ -237,6 +261,7 @@ export const getApplicantsForJob = async (req, res) => {
           createdAt: app.createdAt,
           similarityScore,
           matchedSkills,
+          unmatchedSkills,
           resume: resume ? {
             _id: resume._id,
             title: resume.title,
@@ -332,7 +357,7 @@ export const updateApplicationStatus = async (req, res) => {
     application.status = status;
     await application.save();
 
-    await Notification.create({
+    const notification = await Notification.create({
         recipient: application.user,
         onModel: 'User',
         type: 'status_update',
@@ -340,6 +365,11 @@ export const updateApplicationStatus = async (req, res) => {
         message: `Your application for a job has been updated to: ${status}.`,
         link: '/user/applications'
     });
+
+    emitNotification(application.user, 'User', notification);
+    emitDashboardRefreshToUser(application.user);
+    emitDashboardRefreshToEmployer(req.user._id);
+    emitDashboardRefreshToAdmins();
 
     res.json({ 
       msg: "Application status updated", 
@@ -370,13 +400,17 @@ export const getProfile = async (req, res) => {
 ================================== */
 export const updateProfile = async (req, res) => {
   try {
-    const { companyName, companyDescription, logo } = req.body;
+    const { name, companyName, companyDescription, logo, industryType, employeeCount, registrationNumber } = req.body;
     const employer = await Employer.findById(req.user._id);
     if (!employer) return res.status(404).json({ msg: "Employer not found" });
 
+    if (name !== undefined) employer.name = name;
     if (companyName !== undefined) employer.companyName = companyName;
     if (companyDescription !== undefined) employer.companyDescription = companyDescription;
     if (logo !== undefined) employer.logo = logo;
+    if (industryType !== undefined) employer.industryType = industryType;
+    if (employeeCount !== undefined) employer.employeeCount = employeeCount;
+    if (registrationNumber !== undefined) employer.registrationNumber = registrationNumber;
 
     await employer.save();
     res.json({ msg: "Profile updated successfully", employer });
@@ -462,6 +496,7 @@ export const updateJobPrefs = async (req, res) => {
     if (requireSkills !== undefined) employer.jobPostingPrefs.requireSkills = requireSkills;
     if (defaultJobDuration !== undefined) employer.jobPostingPrefs.defaultJobDuration = defaultJobDuration;
 
+    employer.markModified('jobPostingPrefs');
     await employer.save();
     res.json({ msg: "Job posting preferences updated", prefs: employer.jobPostingPrefs });
   } catch (err) {
@@ -487,11 +522,13 @@ export const getMatchingResults = async (req, res) => {
         const resume = await Resume.findOne({ user: app.user?._id });
         let similarityScore = 0;
         let matchedSkills = [];
+        let unmatchedSkills = [];
 
-        if (resume && resume.skills && resume.skills.length > 0 && jobSkills.length > 0) {
-          const result = calculateSimilarityScore(jobSkills, resume.skills);
+        if (resume && job) {
+          const result = calculateSimilarityScore(job, resume);
           similarityScore = result.score;
           matchedSkills = result.matchedSkills;
+          unmatchedSkills = result.unmatchedSkills;
         }
 
         allResults.push({
@@ -502,6 +539,7 @@ export const getMatchingResults = async (req, res) => {
           status: app.status,
           similarityScore,
           matchedSkills,
+          unmatchedSkills,
           resumeSkills: resume ? resume.skills : [],
           createdAt: app.createdAt
         });
@@ -572,11 +610,13 @@ export const getShortlisted = async (req, res) => {
         const resume = await Resume.findOne({ user: app.user?._id });
         let similarityScore = 0;
         let matchedSkills = [];
+        let unmatchedSkills = [];
 
-        if (resume && resume.skills && resume.skills.length > 0 && jobSkills.length > 0) {
-          const result = calculateSimilarityScore(jobSkills, resume.skills);
+        if (resume && job) {
+          const result = calculateSimilarityScore(job, resume);
           similarityScore = result.score;
           matchedSkills = result.matchedSkills;
+          unmatchedSkills = result.unmatchedSkills;
         }
 
         // Include if manually shortlisted OR high similarity score
@@ -592,6 +632,7 @@ export const getShortlisted = async (req, res) => {
             isAutomatic: similarityScore >= 70 && !app.isShortlisted,
             similarityScore,
             matchedSkills,
+            unmatchedSkills,
             resumeSkills: resume ? resume.skills : [],
             experience: resume ? resume.experience : 0,
             createdAt: app.createdAt,
@@ -614,7 +655,10 @@ export const getShortlisted = async (req, res) => {
 export const editJob = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, skillsRequired } = req.body;
+    const { 
+      title, description, skillsRequired, experienceLevel, minExperienceYears, 
+      educationLevel, salary, location, city, employmentType, deadline 
+    } = req.body;
 
     const job = await Job.findOne({ _id: id, employer: req.user._id });
     if (!job) return res.status(404).json({ msg: "Job not found or access denied" });
@@ -622,6 +666,14 @@ export const editJob = async (req, res) => {
     if (title !== undefined) job.title = title;
     if (description !== undefined) job.description = description;
     if (skillsRequired !== undefined) job.skillsRequired = skillsRequired;
+    if (experienceLevel !== undefined) job.experienceLevel = experienceLevel;
+    if (minExperienceYears !== undefined) job.minExperienceYears = minExperienceYears;
+    if (educationLevel !== undefined) job.educationLevel = educationLevel;
+    if (salary !== undefined) job.salary = salary;
+    if (location !== undefined) job.location = location;
+    if (city !== undefined) job.city = city;
+    if (employmentType !== undefined) job.employmentType = employmentType;
+    if (deadline !== undefined) job.deadline = deadline;
 
     await job.save();
     res.json({ msg: "Job updated successfully", job });
@@ -638,6 +690,13 @@ export const deleteJob = async (req, res) => {
     const { id } = req.params;
     const job = await Job.findOne({ _id: id, employer: req.user._id });
     if (!job) return res.status(404).json({ msg: "Job not found or access denied" });
+
+    if (job.jobImage && job.jobImage.filePath) {
+      const imagePath = "." + job.jobImage.filePath;
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    }
 
     await Application.deleteMany({ job: job._id });
     await Job.findByIdAndDelete(id);
@@ -657,8 +716,8 @@ export const closeJob = async (req, res) => {
     const job = await Job.findOne({ _id: id, employer: req.user._id });
     if (!job) return res.status(404).json({ msg: "Job not found or access denied" });
 
-    job.jobStatus = "rejected";
-    job.status = "rejected";
+    job.isActive = false;
+    job.closedAt = new Date();
     await job.save();
 
     res.json({ msg: "Job closed successfully", job });
@@ -695,6 +754,7 @@ export const updateNotificationPrefs = async (req, res) => {
     if (applicationStatusChange !== undefined) employer.notificationPrefs.applicationStatusChange = applicationStatusChange;
     if (weeklyDigest !== undefined) employer.notificationPrefs.weeklyDigest = weeklyDigest;
 
+    employer.markModified('notificationPrefs');
     await employer.save();
     res.json({ msg: "Notification preferences updated", prefs: employer.notificationPrefs });
   } catch (err) {
