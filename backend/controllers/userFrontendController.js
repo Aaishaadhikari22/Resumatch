@@ -5,36 +5,56 @@ import Application from "../models/Application.js";
 import Notification from "../models/Notification.js";
 import { emitNotification, emitDashboardRefreshToUser, emitDashboardRefreshToEmployer, emitDashboardRefreshToAdmins } from "../utils/socketServer.js";
 import { calculateComprehensiveMatch } from "../utils/skillMatching.js";
+import MatchingSettings from "../models/MatchingSettings.js";
 import { validateUserProfile, canUserApply } from "../utils/profileValidator.js";
 
 /* ==================================
-   DASHBOARD STATS
+   DASHBOARD STATS - OPTIMIZED
 ================================== */
 export const getDashboardStats = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const user = await User.findById(userId).select("-password");
-    let resume = await Resume.findOne({ user: userId });
-    const applicationsCount = await Application.countDocuments({ user: userId });
-    
-    // Find matched jobs conceptually
-    let matchedJobsCount = 0;
-    if (resume) {
-      const activeJobs = await Job.find({ jobStatus: "approved" });
-      
-      activeJobs.forEach(job => {
-        const matchResult = calculateComprehensiveMatch(job, resume);
-        if (matchResult.totalScore >= 50) matchedJobsCount++; // 50% or above threshold
-      });
-    }
-
-    // Application Status Distribution for Chart
-    const statusCounts = await Application.aggregate([
-      { $match: { user: userId } },
-      { $group: { _id: "$status", count: { $sum: 1 } } }
+    // Use Promise.all to fetch data in parallel
+    const [user, resume, applicationsCount, statusCounts] = await Promise.all([
+      User.findById(userId).select("-password").lean(),
+      Resume.findOne({ user: userId }).lean(),
+      Application.countDocuments({ user: userId }),
+      Application.aggregate([
+        { $match: { user: userId } },
+        { $group: { _id: "$status", count: { $sum: 1 } } }
+      ])
     ]);
     
+    // Count saved jobs from user document
+    const savedJobsCount = user?.savedJobs ? user.savedJobs.length : 0;
+    
+    // Quick estimate of matched jobs (sample-based instead of checking all)
+    // This is much faster and still accurate for dashboard purposes
+    let matchedJobsCount = 0;
+    if (resume && resume.skills && resume.skills.length > 0) {
+      const sampleJobs = await Job.find({ jobStatus: "approved" })
+        .lean()
+        .limit(100)
+        .sort({ createdAt: -1 });
+      
+      const settings = await MatchingSettings.findOne().lean() || { minimumSimilarityThreshold: 50 };
+      
+      for (const job of sampleJobs) {
+        const matchResult = calculateComprehensiveMatch(job, resume, settings);
+        if (matchResult.totalScore >= (settings.minimumSimilarityThreshold || 50)) {
+          matchedJobsCount++;
+        }
+      }
+      
+      // Scale up the count based on sample
+      const totalApprovedJobs = await Job.countDocuments({ jobStatus: "approved" });
+      if (sampleJobs.length > 0) {
+        const sampleRatio = matchedJobsCount / sampleJobs.length;
+        matchedJobsCount = Math.round(sampleRatio * totalApprovedJobs);
+      }
+    }
+
     const statusLabels = {
       applied: "Pending",
       reviewed: "Under Review", 
@@ -52,11 +72,12 @@ export const getDashboardStats = async (req, res) => {
       resumeExists: !!resume,
       applicationsCount,
       matchedJobsCount,
-      savedJobsCount: user?.savedJobs ? user.savedJobs.length : 0,
+      savedJobsCount,
       statusChart: chartData
     });
 
   } catch (err) {
+    console.error("Dashboard error:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -178,6 +199,7 @@ export const updateResume = async (req, res) => {
 ================================== */
 export const getRecommendedJobs = async (req, res) => {
   try {
+    console.log('Incoming Authorization header:', req.headers.authorization);
     // Pagination
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -197,10 +219,11 @@ export const getRecommendedJobs = async (req, res) => {
 
     const resume = await Resume.findOne({ user: req.user._id });
 
+    const settings = await MatchingSettings.findOne() || {};
     const recommendedJobs = activeJobs.map(job => {
       let matchResult = { totalScore: 0, breakdown: {}, details: {} };
       if (resume) {
-        matchResult = calculateComprehensiveMatch(job, resume);
+        matchResult = calculateComprehensiveMatch(job, resume, settings);
       }
       
       return {
@@ -228,6 +251,27 @@ export const getRecommendedJobs = async (req, res) => {
   }
 };
 
+// Get a single job by ID with match details for the authenticated user
+export const getJobById = async (req, res) => {
+  try {
+    const jobId = req.params.id;
+    const job = await Job.findById(jobId).populate("employer", "companyName logo");
+    if (!job) return res.status(404).json({ msg: "Job not found" });
+
+    const resume = await Resume.findOne({ user: req.user._id });
+    const settings = await MatchingSettings.findOne() || {};
+    let matchResult = { totalScore: 0, breakdown: {}, details: {} };
+    if (resume) {
+      matchResult = calculateComprehensiveMatch(job, resume, settings);
+    }
+
+    res.json({ job: { ...job._doc, similarityScore: matchResult.totalScore, matchBreakdown: matchResult.breakdown, matchDetails: matchResult.details } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 /* ==================================
    APPLICATIONS
 ================================== */
@@ -251,6 +295,15 @@ export const applyForJob = async (req, res) => {
       return res.status(404).json({ msg: "Job not found." });
     }
 
+    // Check if application deadline has passed
+    if (job.deadline && new Date() > new Date(job.deadline)) {
+      return res.status(400).json({ 
+        msg: "⏰ Application deadline has passed. You can no longer apply for this job.",
+        type: "DEADLINE_PASSED",
+        deadline: job.deadline
+      });
+    }
+
     const employerRef = job.employer || employerId;
     if (!employerRef) {
       return res.status(400).json({ msg: "Employer not found for this job." });
@@ -272,7 +325,8 @@ export const applyForJob = async (req, res) => {
       });
     }
 
-    const matchResult = calculateComprehensiveMatch(job, resume);
+    const settings = await MatchingSettings.findOne() || {};
+    const matchResult = calculateComprehensiveMatch(job, resume, settings);
 
     const application = new Application({
       user: req.user._id,
@@ -324,17 +378,20 @@ export const getMyApplications = async (req, res) => {
       return res.json(applications);
     }
 
+    const settings = await MatchingSettings.findOne() || {};
     const appsWithScore = applications.map(app => {
-      if (app.similarityScore !== undefined && app.similarityScore !== null) {
-        return { ...app._doc, similarityScore: app.similarityScore };
+      // Always try to compute detailed match info when job and resume are available
+      let similarityScore = app.similarityScore !== undefined && app.similarityScore !== null ? app.similarityScore : 0;
+      let matchDetails = null;
+      if (app.job && resume) {
+        const matchResult = calculateComprehensiveMatch(app.job, resume, settings);
+        similarityScore = matchResult.totalScore;
+        matchDetails = matchResult.details || {
+          matchedSkills: matchResult?.breakdown ? [] : []
+        };
       }
 
-      let score = 0;
-      if (app.job) {
-         const matchResult = calculateComprehensiveMatch(app.job, resume);
-         score = matchResult.totalScore;
-      }
-      return { ...app._doc, similarityScore: score };
+      return { ...app._doc, similarityScore, matchDetails };
     });
 
     res.json(appsWithScore);
@@ -351,6 +408,20 @@ export const saveJob = async (req, res) => {
     const { jobId } = req.body;
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ msg: "User not found" });
+
+    // Check if job exists and deadline has passed
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ msg: "Job not found." });
+    }
+
+    if (job.deadline && new Date() > new Date(job.deadline)) {
+      return res.status(400).json({ 
+        msg: "⏰ Application deadline has passed. This job is no longer accepting applications.",
+        type: "DEADLINE_PASSED",
+        deadline: job.deadline
+      });
+    }
     
     if (!user.savedJobs.includes(jobId)) {
       user.savedJobs.push(jobId);
@@ -393,8 +464,9 @@ export const getSavedJobs = async (req, res) => {
       return res.json(user.savedJobs || []);
     }
 
+    const settings = await MatchingSettings.findOne() || {};
     const savedJobsWithScore = (user.savedJobs || []).map(job => {
-      const matchResult = calculateComprehensiveMatch(job, resume);
+      const matchResult = calculateComprehensiveMatch(job, resume, settings);
       return { ...job._doc, similarityScore: matchResult.totalScore };
     });
     

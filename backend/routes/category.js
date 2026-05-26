@@ -1,5 +1,6 @@
 import express from "express";
 import Category from "../models/Category.js";
+import { emitDashboardRefreshToAdmins } from "../utils/socketServer.js";
 
 const router = express.Router();
 
@@ -32,6 +33,9 @@ const category = new Category(req.body);
 
 await category.save();
 
+// Emit socket event to refresh admin dashboards and reports
+emitDashboardRefreshToAdmins();
+
 res.json({message:"Category created"});
 
 }catch(err){
@@ -52,6 +56,9 @@ req.params.id,
 req.body
 );
 
+// Emit socket event to refresh admin dashboards and reports
+emitDashboardRefreshToAdmins();
+
 res.json({message:"Category updated"});
 
 }catch(err){
@@ -67,9 +74,10 @@ router.delete("/delete/:id", async(req,res)=>{
 
 try{
 
-await Category.findByIdAndDelete(
-req.params.id
-);
+await Category.findByIdAndDelete(req.params.id);
+
+// Emit socket event to refresh admin dashboards and reports
+emitDashboardRefreshToAdmins();
 
 res.json({message:"Category deleted"});
 

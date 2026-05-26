@@ -89,10 +89,10 @@ export default function EmployerSignup() {
             <>
               <h2>Employer Sign Up</h2>
               <p>Start hiring top talent with ResuMatch AI</p>
-              <form onSubmit={handleSignup}>
-                <input type="text" placeholder="Your Full Name" value={name} onChange={(e) => setName(e.target.value)} required />
-                <input type="text" placeholder="Company Name" value={companyName} onChange={(e) => setCompanyName(e.target.value)} required />
-                <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <form onSubmit={handleSignup} autoComplete="off">
+                <input type="text" placeholder="Your Full Name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" required />
+                <input type="text" placeholder="Company Name" value={companyName} onChange={(e) => setCompanyName(e.target.value)} autoComplete="off" required />
+                <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" data-lpignore="true" required />
                 <input
                   type="password"
                   placeholder="Password"
@@ -101,6 +101,9 @@ export default function EmployerSignup() {
                     setPassword(e.target.value);
                     setPasswordError(validatePassword(e.target.value));
                   }}
+                  autoComplete="new-password"
+                  data-lpignore="true"
+                  data-form-type="other"
                   required
                 />
                 {passwordError && <div className="auth-error">{passwordError}</div>}

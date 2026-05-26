@@ -541,7 +541,7 @@ export default function UserProfile() {
                  </label>
                </div>
                {resumeData.resumeUrl && resumeData.resumeUrl !== 'pending' && !resumeFile && (
-                 <p style={{ fontSize: "13px", color: "#3b82f6", marginTop: "10px" }}>💾 Current resume: <a href={resumeData.resumeUrl.startsWith('http') ? resumeData.resumeUrl : `http://localhost:5000${resumeData.resumeUrl}`} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>View PDF Document</a></p>
+                 <p style={{ fontSize: "13px", color: "#3b82f6", marginTop: "10px" }}>💾 Current resume: <a href={resumeData.resumeUrl.startsWith('http') ? resumeData.resumeUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${resumeData.resumeUrl}`} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>View PDF Document</a></p>
                )}
             </div>
 

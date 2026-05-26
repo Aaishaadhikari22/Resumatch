@@ -18,6 +18,7 @@ import {
   getMyResume,
   updateResume,
   getRecommendedJobs,
+  getJobById,
   applyForJob,
   getMyApplications,
   saveJob,
@@ -51,6 +52,32 @@ const upload = multer({
     } else {
       cb(new Error("Invalid file type. Only PDF, JPEG, PNG, and DOC files are allowed."));
     }
+  }
+});
+
+// Configure multer for profile image uploads
+const profileUploadDir = "./uploads/profile-images";
+if (!fs.existsSync(profileUploadDir)) {
+  fs.mkdirSync(profileUploadDir, { recursive: true });
+}
+
+const profileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, profileUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, "profile-" + req.user._id + "-" + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadProfile = multer({
+  storage: profileStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Invalid image type. Only JPEG, PNG, and WEBP are allowed."));
   }
 });
 
@@ -199,6 +226,7 @@ router.get("/jobs/recommended", getRecommendedJobs);
 router.post("/jobs/save", saveJob);
 router.post("/jobs/unsave", unsaveJob);
 router.get("/jobs/saved", getSavedJobs);
+router.get("/jobs/:id", async (req, res, next) => { try { return await getJobById(req, res); } catch (e) { next(e); } });
 
 // APPLICATIONS
 router.post("/apply", applyForJob);
@@ -301,6 +329,47 @@ router.put("/profile", async (req, res) => {
   }
 });
 
+// Upload or update profile photo
+router.post("/profile/photo", uploadProfile.single("photo"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ msg: "No photo uploaded" });
+
+    const user = await User.findById(req.user._id);
+
+    // Delete old photo if exists
+    if (user.profilePhoto && fs.existsSync("." + user.profilePhoto)) {
+      try { fs.unlinkSync("." + user.profilePhoto); } catch (e) { console.error("Failed to delete old profile photo", e); }
+    }
+
+    user.profilePhoto = `/uploads/profile-images/${req.file.filename}`;
+    user.profileCompletion.isProfilePhotoUploaded = true;
+    user.profileCompletion.completionPercentage = calculateCompletion(user);
+    await user.save();
+
+    res.json({ msg: "Profile photo uploaded", profilePhoto: user.profilePhoto });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: err.message });
+  }
+});
+
+// Remove profile photo
+router.delete("/profile/photo", async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (user.profilePhoto && fs.existsSync("." + user.profilePhoto)) {
+      fs.unlinkSync("." + user.profilePhoto);
+    }
+    user.profilePhoto = "";
+    user.profileCompletion.isProfilePhotoUploaded = false;
+    user.profileCompletion.completionPercentage = calculateCompletion(user);
+    await user.save();
+    res.json({ msg: "Profile photo removed" });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+});
+
 // Change password
 router.put("/change-password", async (req, res) => {
   try {
@@ -393,8 +462,9 @@ router.post("/upload-document", upload.single("document"), async (req, res) => {
     }
 
     const { documentType } = req.body;
-    if (!documentType) {
-      return res.status(400).json({ msg: "Document type is required" });
+    const allowedTypes = ["id","passport","citizenship","license","certificate","registration","other"];
+    if (!documentType || !allowedTypes.includes(documentType)) {
+      return res.status(400).json({ msg: "Document type is required and must be a valid type" });
     }
 
     const user = await User.findById(req.user._id);
@@ -405,7 +475,8 @@ router.post("/upload-document", upload.single("document"), async (req, res) => {
       fileName: req.file.originalname,
       filePath: `/uploads/documents/${req.file.filename}`,
       uploadedAt: new Date(),
-      status: "uploaded" // Will be verified by admin
+      status: "uploaded", // Will be verified by admin
+      isVerified: false
     };
 
     user.documents.push(newDocument);

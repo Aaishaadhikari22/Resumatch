@@ -1,19 +1,26 @@
-import { createContext, useContext, useEffect, useMemo } from "react";
+
+import { useContext, useEffect, useMemo } from "react";
 import { io } from "socket.io-client";
 import { getActiveAuthToken } from "../utils/auth";
+import { SocketContext } from "./socketContext";
 
-const SocketContext = createContext(null);
+export function useSocket() {
+  const context = useContext(SocketContext);
+  return context?.socket || null;
+}
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function SocketProvider({ children }) {
-  const socket = useMemo(() => {
+    const socket = useMemo(() => {
     const token = getActiveAuthToken();
 
     if (!token) {
       return null;
     }
 
-    const socketInstance = io("http://localhost:5000", {
+    const apiBase = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5000`;
+    const socketHost = apiBase.replace(/\/api$/, "");
+
+    const socketInstance = io(socketHost, {
       auth: { token },
       transports: ["websocket", "polling"],
       withCredentials: true
@@ -47,10 +54,3 @@ export function SocketProvider({ children }) {
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 }
 
-export const useSocket = () => {
-  const context = useContext(SocketContext);
-  if (!context) {
-    throw new Error("useSocket must be used within a SocketProvider");
-  }
-  return context.socket;
-};

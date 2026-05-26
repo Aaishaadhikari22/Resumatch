@@ -37,7 +37,7 @@ export default function AdminSignup() {
       };
       saveAuth("admin", res.data.token, adminInfo);
       alert("Admin created successfully! Logging you in...");
-      navigate("/dashboard");
+      navigate("/admin/dashboard");
     } catch (error) {
       console.log("Signup error:", error);
       if (error.response) {
@@ -61,12 +61,13 @@ export default function AdminSignup() {
           <h2>Create Admin Account</h2>
           <p>Sign up to manage ResuMatch</p>
 
-        <form onSubmit={handleSignup}>
+        <form onSubmit={handleSignup} autoComplete="off">
 
           <input
             placeholder="Full Name"
             value={name}
             onChange={(e)=>setName(e.target.value)}
+            autoComplete="off"
             required
           />
 
@@ -75,6 +76,9 @@ export default function AdminSignup() {
             placeholder="Email Address"
             value={email}
             onChange={(e)=>setEmail(e.target.value)}
+            autoComplete="off"
+            data-lpignore="true"
+            data-form-type="other"
             required
           />
 
@@ -83,6 +87,9 @@ export default function AdminSignup() {
             placeholder="Password"
             value={password}
             onChange={(e)=>setPassword(e.target.value)}
+            autoComplete="new-password"
+            data-lpignore="true"
+            data-form-type="other"
             required
           />
 

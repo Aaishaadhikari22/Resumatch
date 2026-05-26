@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import API from "../api/axios";
+import { useSocket } from "../hooks/useSocket.jsx";
 import "./admin.css";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import Alert from "../components/common/Alert";
@@ -32,6 +33,10 @@ export default function Categories() {
   const [processingId, setProcessingId] = useState(null);
   const [message, setMessage] = useState({ text: "", type: "" });
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const socket = useSocket();
+
+  const ITEMS_PER_PAGE = 10;
 
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, action: null, title: "", text: "", type: "danger" });
 
@@ -43,7 +48,7 @@ export default function Categories() {
   
   const [editingId, setEditingId] = useState(null);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     setLoading(true);
     try {
       const res = await API.get("/category/all");
@@ -54,7 +59,20 @@ export default function Categories() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  // Listen for real-time updates from socket
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("dashboard:refresh", fetchCategories);
+    return () => {
+      socket.off("dashboard:refresh", fetchCategories);
+    };
+  }, [socket, fetchCategories]);
 
   const handleCreateOrUpdate = async (e) => {
     e.preventDefault();
@@ -160,6 +178,11 @@ export default function Categories() {
     cat.name?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const totalPages = Math.ceil(filteredCategories.length / ITEMS_PER_PAGE);
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const paginatedCategories = filteredCategories.slice(startIdx, endIdx);
+
   return (
     <div className="admin-page" style={{ padding: "20px" }}>
       <h2>Industry Categories Center</h2>
@@ -252,9 +275,10 @@ export default function Categories() {
         <div style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
           <input
             type="text"
+            autoComplete="off"
             placeholder="🔍 Search Sector by name..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             style={{ padding: "10px", borderRadius: "5px", border: "1px solid #ccc", width: "100%", maxWidth: "400px" }}
           />
         </div>
@@ -264,6 +288,7 @@ export default function Categories() {
                 <LoadingSpinner />
             </div>
         ) : (
+            <>
             <table className="admin-table">
             <thead>
                 <tr>
@@ -275,12 +300,12 @@ export default function Categories() {
                 </tr>
             </thead>
             <tbody>
-                {filteredCategories.length === 0 ? (
+                {paginatedCategories.length === 0 ? (
                 <tr>
                     <td colSpan="5" className="no-data" style={{textAlign:"center", padding:"20px"}}>No categories found</td>
                 </tr>
                 ) : (
-                filteredCategories.map((cat) => (
+                paginatedCategories.map((cat) => (
                     <tr key={cat._id}>
                     <td>
                         <span style={{ fontSize: "16px", marginRight: "8px" }}>{getCategoryIcon(cat.name)}</span>
@@ -326,6 +351,44 @@ export default function Categories() {
                 )}
             </tbody>
             </table>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginTop: "20px", padding: "15px", background: "#f9f9f9", borderRadius: "5px" }}>
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  style={{ padding: "8px 12px", background: currentPage === 1 ? "#ccc" : "#007bff", color: "#fff", border: "none", borderRadius: "4px", cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
+                >
+                  ← Previous
+                </button>
+                
+                <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button 
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      style={{ padding: "8px 10px", background: currentPage === page ? "#007bff" : "#f0f0f0", color: currentPage === page ? "#fff" : "#333", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: currentPage === page ? "bold" : "normal" }}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  style={{ padding: "8px 12px", background: currentPage === totalPages ? "#ccc" : "#007bff", color: "#fff", border: "none", borderRadius: "4px", cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}
+                >
+                  Next →
+                </button>
+
+                <span style={{ marginLeft: "20px", color: "#666", fontWeight: "bold" }}>
+                  Page {currentPage} of {totalPages} • Showing {Math.min(startIdx + 1, filteredCategories.length)}-{Math.min(endIdx, filteredCategories.length)} of {filteredCategories.length}
+                </span>
+              </div>
+            )}
+            </>
         )}
       </div>
     </div>

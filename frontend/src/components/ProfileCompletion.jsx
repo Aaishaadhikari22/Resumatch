@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import API from "../api/axios";
 import "./ProfileCompletion.css";
 
-export default function ProfileCompletion({ userId, onComplete, onEditProfile, showWarnings = true }) {
+export default function ProfileCompletion({ onComplete, onEditProfile, showWarnings = true }) {
   const [profile, setProfile] = useState(null);
   const [validation, setValidation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -11,24 +11,7 @@ export default function ProfileCompletion({ userId, onComplete, onEditProfile, s
   const [documentType, setDocumentType] = useState("id");
   const [dragActive, setDragActive] = useState(false);
 
-  const fetchProfileData = async () => {
-    try {
-      const res = await API.get("/user/profile");
-      setProfile(res.data);
-      // Calculate validation
-      validateProfile(res.data);
-    } catch (err) {
-      console.error("Failed to fetch profile:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProfileData();
-  }, [userId]);
-
-  const validateProfile = (userData) => {
+  const validateProfile = useCallback((userData) => {
     const requiredFields = {
       name: { completed: !!userData.name, label: "Full Name" },
       email: { completed: !!userData.email, label: "Email" },
@@ -70,7 +53,24 @@ export default function ProfileCompletion({ userId, onComplete, onEditProfile, s
     if (onComplete && incomplete.length === 0) {
       onComplete(true);
     }
-  };
+  }, [onComplete]);
+
+  const fetchProfileData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await API.get("/user/profile");
+      setProfile(res.data);
+      validateProfile(res.data);
+    } catch (err) {
+      console.error("Failed to fetch profile:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [validateProfile]);
+
+  useEffect(() => {
+    fetchProfileData();
+  }, [fetchProfileData]);
 
   const handleFileUpload = async (e) => {
     e.preventDefault();
@@ -260,6 +260,7 @@ export default function ProfileCompletion({ userId, onComplete, onEditProfile, s
               <option value="">Select document type</option>
               <option value="id">Government ID</option>
               <option value="passport">Passport</option>
+              <option value="citizenship">Citizenship Document</option>
               <option value="license">Driver's License</option>
               <option value="certificate">Certificate/Degree</option>
               <option value="registration">Company Registration</option>

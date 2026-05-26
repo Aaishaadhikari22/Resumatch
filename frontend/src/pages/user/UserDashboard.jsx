@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import API from "../../api/axios";
-import { useSocket } from "../../hooks/useSocket.jsx";
+import { useSocket } from "../../hooks/useSocketHook";
 import "./userDashboard.css";
 import {
   PieChart,
@@ -16,8 +16,35 @@ import {
   CartesianGrid
 } from "recharts";
 
+// Custom Tooltip for Match Insights Chart
+function MatchInsightsTooltip({ active, payload, label, activeSeries }) {
+  if (active && payload && payload.length > 0) {
+    const data = payload[0];
+    return (
+      <div style={{
+        background: "white",
+        padding: "10px 14px",
+        border: `3px solid #3b82f6`,
+        borderRadius: "6px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+      }}>
+        <p style={{ margin: "0 0 6px 0", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
+          {label}
+        </p>
+        <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: "#3b82f6" }}>
+          {data.name}: {data.value}
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
+
 export default function UserDashboard() {
   const [stats, setStats] = useState(null);
+  const [visiblePieSlices, setVisiblePieSlices] = useState({});
+  const [visibleBars, setVisibleBars] = useState({ matched: true, saved: true, applied: true });
+  const [activeBarSeries, setActiveBarSeries] = useState(null);
   const navigate = useNavigate();
   const socket = useSocket();
 
@@ -32,9 +59,8 @@ export default function UserDashboard() {
       ]);
 
       setStats(dashRes.data);
-
-      // Check verification status
-      // Profile data loaded but not used in UI
+      // keep profileRes available (used indirectly by other flows)
+      const _profile = profileRes?.data;
     } catch (err) {
       console.log(err);
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -55,6 +81,31 @@ export default function UserDashboard() {
     socket.on("dashboard:refresh", fetchData);
     return () => socket.off("dashboard:refresh", fetchData);
   }, [socket, fetchData]);
+
+  // Initialize visiblePieSlices when stats change
+  useEffect(() => {
+    if (stats?.statusChart && Object.keys(visiblePieSlices).length === 0) {
+      const initialVisibility = {};
+      stats.statusChart.forEach((item, index) => {
+        initialVisibility[index] = true;
+      });
+      setVisiblePieSlices(initialVisibility);
+    }
+  }, [stats]);
+
+  const handlePieLegendClick = (index) => {
+    setVisiblePieSlices(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  const handleBarLegendClick = (barName) => {
+    setVisibleBars(prev => ({
+      ...prev,
+      [barName]: !prev[barName]
+    }));
+  };
 
   if (!stats) {
     return (
@@ -107,7 +158,7 @@ export default function UserDashboard() {
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie
-                      data={stats.statusChart && stats.statusChart.length > 0 ? stats.statusChart : [{name: "No Data", value: 1}]}
+                      data={stats.statusChart && stats.statusChart.length > 0 ? stats.statusChart.filter((_, idx) => visiblePieSlices[idx] !== false) : [{name: "No Data", value: 1}]}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -116,7 +167,7 @@ export default function UserDashboard() {
                       dataKey="value"
                     >
                       {stats.statusChart?.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        visiblePieSlices[index] !== false && <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       )) || <Cell fill="#e2e8f0" />}
                     </Pie>
                     <Tooltip />
@@ -125,8 +176,25 @@ export default function UserDashboard() {
               </div>
               <div className="chart-legend">
                   {stats.statusChart?.map((s, i) => (
-                      <div key={i} className="legend-item">
-                          <span style={{ backgroundColor: COLORS[i % COLORS.length] }}></span>
+                      <div
+                        key={i}
+                        onClick={() => handlePieLegendClick(i)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          cursor: "pointer",
+                          padding: "6px 10px",
+                          borderRadius: "5px",
+                          backgroundColor: visiblePieSlices[i] !== false ? `${COLORS[i % COLORS.length]}15` : "#f1f5f9",
+                          border: visiblePieSlices[i] !== false ? `1px solid ${COLORS[i % COLORS.length]}` : "1px solid #cbd5e1",
+                          opacity: visiblePieSlices[i] !== false ? 1 : 0.5,
+                          transition: "all 0.2s",
+                          fontSize: "13px"
+                        }}
+                        className="legend-item"
+                      >
+                          <span style={{ backgroundColor: COLORS[i % COLORS.length], display: "inline-block", width: "8px", height: "8px", borderRadius: "2px" }}></span>
                           {s.name}
                       </div>
                   ))}
@@ -135,22 +203,94 @@ export default function UserDashboard() {
 
             <div className="chart-card">
               <h3 className="section-title">Match Insights</h3>
+              <div style={{ display: "flex", gap: "12px", marginBottom: "15px", flexWrap: "wrap" }}>
+                <div
+                  onClick={() => handleBarLegendClick("matched")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                    padding: "6px 10px",
+                    borderRadius: "5px",
+                    backgroundColor: visibleBars.matched ? "#dbeafe" : "#f1f5f9",
+                    border: visibleBars.matched ? "2px solid #3b82f6" : "1px solid #cbd5e1",
+                    opacity: visibleBars.matched ? 1 : 0.5,
+                    transition: "all 0.2s",
+                    fontSize: "13px",
+                    fontWeight: 500
+                  }}
+                >
+                  <span style={{ display: "inline-block", width: "8px", height: "8px", backgroundColor: "#3b82f6", borderRadius: "2px" }}></span>
+                  Matched
+                </div>
+                <div
+                  onClick={() => handleBarLegendClick("saved")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                    padding: "6px 10px",
+                    borderRadius: "5px",
+                    backgroundColor: visibleBars.saved ? "#dbeafe" : "#f1f5f9",
+                    border: visibleBars.saved ? "2px solid #3b82f6" : "1px solid #cbd5e1",
+                    opacity: visibleBars.saved ? 1 : 0.5,
+                    transition: "all 0.2s",
+                    fontSize: "13px",
+                    fontWeight: 500
+                  }}
+                >
+                  <span style={{ display: "inline-block", width: "8px", height: "8px", backgroundColor: "#3b82f6", borderRadius: "2px" }}></span>
+                  Saved
+                </div>
+                <div
+                  onClick={() => handleBarLegendClick("applied")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                    padding: "6px 10px",
+                    borderRadius: "5px",
+                    backgroundColor: visibleBars.applied ? "#dbeafe" : "#f1f5f9",
+                    border: visibleBars.applied ? "2px solid #3b82f6" : "1px solid #cbd5e1",
+                    opacity: visibleBars.applied ? 1 : 0.5,
+                    transition: "all 0.2s",
+                    fontSize: "13px",
+                    fontWeight: 500
+                  }}
+                >
+                  <span style={{ display: "inline-block", width: "8px", height: "8px", backgroundColor: "#3b82f6", borderRadius: "2px" }}></span>
+                  Applied
+                </div>
+              </div>
               <div style={{ height: "250px", width: "100%" }}>
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={[
-                      { name: "Matched", value: stats.matchedJobsCount },
-                      { name: "Saved", value: stats.savedJobsCount },
-                      { name: "Applied", value: stats.applicationsCount }
-                  ]}>
+                      visibleBars.matched && { name: "Matched", value: stats.matchedJobsCount },
+                      visibleBars.saved && { name: "Saved", value: stats.savedJobsCount },
+                      visibleBars.applied && { name: "Applied", value: stats.applicationsCount }
+                  ].filter(Boolean)}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} />
                     <YAxis hide />
-                    <Tooltip cursor={{fill: '#f8fafc'}} />
-                    <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+                    <Tooltip 
+                      content={(props) => <MatchInsightsTooltip {...props} activeSeries={activeBarSeries} />}
+                      cursor={{fill: '#f8fafc'}}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      fill="#3b82f6" 
+                      radius={[4, 4, 0, 0]} 
+                      barSize={40}
+                      onMouseEnter={() => setActiveBarSeries('value')}
+                      onMouseLeave={() => setActiveBarSeries(null)}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <p style={{fontSize: "12px", color: "#64748b", textAlign: "center", marginTop: "10px"}}>Your engagement across the platform</p>
+              <p style={{fontSize: "12px", color: "#64748b", textAlign: "center", marginTop: "10px"}}>Click legend items to show/hide. Your engagement across the platform</p>
             </div>
           </div>
 

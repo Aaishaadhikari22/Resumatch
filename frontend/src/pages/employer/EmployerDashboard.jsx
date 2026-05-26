@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import API from "../../api/axios";
-import { useSocket } from "../../hooks/useSocket.jsx";
+import { useSocket } from "../../hooks/useSocketHook";
 import "./employerDashboard.css";
 import {
   BarChart,
@@ -14,8 +14,35 @@ import {
   Cell
 } from "recharts";
 
+// Custom Tooltip for Status Chart
+function StatusChartTooltip({ active, payload, label, activeBarIndex, colors }) {
+  if (active && payload && payload.length > 0) {
+    const data = payload[0];
+    const color = colors[activeBarIndex % colors.length];
+    return (
+      <div style={{
+        background: "white",
+        padding: "10px 14px",
+        border: `3px solid ${color}`,
+        borderRadius: "6px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+      }}>
+        <p style={{ margin: "0 0 6px 0", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
+          {label}
+        </p>
+        <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: color }}>
+          {data.name}: {data.value}
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
+
 export default function EmployerDashboard() {
   const [stats, setStats] = useState(null);
+  const [visibleBars, setVisibleBars] = useState({});
+  const [activeBarIndex, setActiveBarIndex] = useState(null);
   const navigate = useNavigate();
   const socket = useSocket();
 
@@ -49,6 +76,24 @@ export default function EmployerDashboard() {
     socket.on("dashboard:refresh", fetchData);
     return () => socket.off("dashboard:refresh", fetchData);
   }, [socket, fetchData]);
+
+  // Initialize visibleBars when stats change
+  useEffect(() => {
+    if (stats?.statusChart && Object.keys(visibleBars).length === 0) {
+      const initialVisibility = {};
+      stats.statusChart.forEach((item, index) => {
+        initialVisibility[index] = true;
+      });
+      setVisibleBars(initialVisibility);
+    }
+  }, [stats]);
+
+  const handleBarLegendClick = (index) => {
+    setVisibleBars(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
 
   if (!stats) {
     return (
@@ -122,22 +167,57 @@ export default function EmployerDashboard() {
 
           <div className="emp-chart-section">
             <h3 className="emp-section-title">Hiring Pipeline Progress</h3>
+            <div style={{ display: "flex", gap: "12px", marginBottom: "15px", flexWrap: "wrap" }}>
+              {stats.statusChart?.map((item, index) => (
+                <div
+                  key={index}
+                  onClick={() => handleBarLegendClick(index)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    cursor: "pointer",
+                    padding: "6px 10px",
+                    borderRadius: "5px",
+                    backgroundColor: visibleBars[index] ? `${COLORS[index % COLORS.length]}20` : "#f1f5f9",
+                    border: visibleBars[index] ? `2px solid ${COLORS[index % COLORS.length]}` : "1px solid #cbd5e1",
+                    opacity: visibleBars[index] ? 1 : 0.5,
+                    transition: "all 0.2s",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    color: "#1e293b"
+                  }}
+                >
+                  <span style={{ display: "inline-block", width: "10px", height: "10px", backgroundColor: COLORS[index % COLORS.length], borderRadius: "2px" }}></span>
+                  {item.name}
+                </div>
+              ))}
+            </div>
             <div style={{ width: "100%", height: "300px", marginTop: "20px" }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.statusChart && stats.statusChart.length > 0 ? stats.statusChart : [{name: "No Data", value: 0}]}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} />
                   <YAxis axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{fill: '#f0fdfa'}} />
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={50}>
+                  <Tooltip 
+                    content={(props) => <StatusChartTooltip {...props} activeBarIndex={activeBarIndex} colors={COLORS} />}
+                    cursor={{fill: '#f0fdfa'}}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    radius={[4, 4, 0, 0]} 
+                    barSize={50}
+                    onMouseEnter={(data, index) => setActiveBarIndex(index)}
+                    onMouseLeave={() => setActiveBarIndex(null)}
+                  >
                     {stats.statusChart?.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      visibleBars[index] && <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <p className="emp-chart-hint">Distribution of applicants across different stages of your funnel.</p>
+            <p className="emp-chart-hint">Click legend items to show/hide. Distribution of applicants across different stages of your funnel.</p>
           </div>
 
           <div className="emp-actions-section">

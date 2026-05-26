@@ -35,27 +35,26 @@ const Sidebar = () => {
   const isSectorAdmin = adminRole === "sector_admin";
 
   const superAdminMenuItems = [
-    { name: "Dashboard", path: "/dashboard", icon: "🏠" },
-    { name: "Admins", path: "/admins", icon: "🛡️" },
-    { name: "Users", path: "/users", icon: "👥" },
-    { name: "Employers", path: "/employers", icon: "🏢" },
-    { name: "Jobs", path: "/jobs", icon: "💼" },
-    { name: "Applications", path: "/applications", icon: "📄" },
-    { name: "Resumes", path: "/resumes", icon: "📋" },
-    { name: "Categories", path: "/categories", icon: "📂" },
-    { name: "Reports", path: "/reports", icon: "📊" },
-    { name: "Verification", path: "/verification", icon: "✅" },
-    { name: "Settings", path: "/settings", icon: "⚙️" },
+    { name: "Dashboard", path: "/admin/dashboard", icon: "🏠" },
+    { name: "Admins", path: "/admin/admins", icon: "🛡️" },
+    { name: "Users", path: "/admin/users", icon: "👥" },
+    { name: "Employers", path: "/admin/employers", icon: "🏢" },
+    { name: "Jobs", path: "/admin/jobs", icon: "💼" },
+    { name: "Applications", path: "/admin/applications", icon: "📄" },
+    { name: "Resumes", path: "/admin/resumes", icon: "📋" },
+    { name: "Categories", path: "/admin/categories", icon: "📂" },
+    { name: "Reports", path: "/admin/reports", icon: "📊" },
+    { name: "Settings", path: "/admin/settings", icon: "⚙️" },
   ];
 
   const sectorAdminMenuItems = [
-    { name: "Dashboard", path: "/dashboard", icon: "🏠" },
-    { name: "Employers", path: "/employers", icon: "🏢" },
-    { name: "Jobs", path: "/jobs", icon: "💼" },
-    { name: "Applications", path: "/applications", icon: "📄" },
-    { name: "Reports", path: "/reports", icon: "📊" },
-    { name: "Verification", path: "/verification", icon: "✅" },
-    { name: "Settings", path: "/sector-admin-settings", icon: "⚙️" },
+    { name: "Dashboard", path: "/admin/dashboard", icon: "🏠" },
+    { name: "Employers", path: "/admin/employers", icon: "🏢" },
+    { name: "Jobs", path: "/admin/jobs", icon: "💼" },
+    { name: "Applications", path: "/admin/applications", icon: "📄" },
+    { name: "Reports", path: "/admin/reports", icon: "📊" },
+    { name: "Verification", path: "/admin/verification", icon: "✅" },
+    { name: "Settings", path: "/admin/sector-admin-settings", icon: "⚙️" },
   ];
 
   const menuItems = isSectorAdmin ? sectorAdminMenuItems : superAdminMenuItems;

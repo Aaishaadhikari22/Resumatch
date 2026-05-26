@@ -56,7 +56,7 @@ export default function AdminManagement() {
       const res = await API.post(url, data);
       setMessage(res.data.message || accountType + " created successfully");
 
-      // Reset form
+      // Reset form completely
       setFormData({
         name: "",
         email: "",
@@ -66,6 +66,16 @@ export default function AdminManagement() {
         phone: "",
         role: "",
       });
+
+      // Clear form inputs to prevent browser autofill
+      const form = document.querySelector('.admin-form');
+      if (form) {
+        const inputs = form.querySelectorAll('input[type="email"], input[type="password"], input[type="text"]');
+        inputs.forEach(input => {
+          input.value = "";
+          input.setAttribute('autocomplete', 'off');
+        });
+      }
 
       // Auto-refresh the visual table explicitly
       fetchAdmins();
@@ -134,26 +144,36 @@ export default function AdminManagement() {
             </SuperAdminGuard>
           </select>
 
-          <div className="admin-form">
+          <div className="admin-form" autoComplete="off">
             <input
               placeholder={accountType === "employer" ? "Company Name" : "Name"}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              autoComplete="off"
             />
 
             <input
               placeholder="Email"
+              type="email"
+              autoComplete="off"
+              spellCheck="false"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              data-lpignore="true"
+              data-form-type="other"
             />
 
             <input
               type="password"
               placeholder="Password"
+              autoComplete="new-password"
+              spellCheck="false"
               value={formData.password}
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
               }
+              data-lpignore="true"
+              data-form-type="other"
             />
 
             <input
@@ -208,6 +228,7 @@ export default function AdminManagement() {
           {/* SEARCH + FILTER */}
           <div className="search-filter-section">
             <input
+              autoComplete="off"
               placeholder="Search by name or email"
               value={search}
               onChange={(e) => setSearch(e.target.value)}

@@ -24,14 +24,15 @@ export default function UserLogin() {
         email, password 
       });
       const userInfo = {
-        _id: res.data.user._id,
+        _id: res.data.user._id || res.data.user.id,
+        id: res.data.user.id || res.data.user._id,
         name: res.data.user.name,
         email: res.data.user.email,
         role: res.data.user.role
       };
       saveAuth("user", res.data.token, userInfo);
       
-      window.location.href = "/user/dashboard";
+      window.location.href = "/jobseeker/dashboard";
     } catch (error) {
       if (error.response?.data?.requireOTP) {
          setRequireOTP(true);
@@ -39,8 +40,8 @@ export default function UserLogin() {
          alert(error.response.data.msg || "Email not verified. A new OTP has been sent.");
          return;
       }
-      console.log(error);
-      alert(error.response?.data?.msg || "Login failed");
+      console.error("Login error:", error.response?.data || error.message || error);
+      alert(error.response?.data?.msg || error.message || "Login failed");
     }
   };
 
@@ -164,14 +165,14 @@ export default function UserLogin() {
               <p>{otpSent ? "Enter the OTP sent to your email and your new password." : "Enter your email to receive a password reset OTP."}</p>
               
               {!otpSent ? (
-                <form onSubmit={handleSendOTP}>
-                  <input type="email" placeholder="Email Address" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required />
+                <form onSubmit={handleSendOTP} autoComplete="off">
+                  <input type="email" placeholder="Email Address" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} autoComplete="off" data-lpignore="true" required />
                   <button type="submit" disabled={loading}>{loading ? "Sending..." : "Send Reset OTP"}</button>
                 </form>
               ) : (
-                <form onSubmit={handleResetPassword}>
+                <form onSubmit={handleResetPassword} autoComplete="off">
                   <input type="text" placeholder="6-digit OTP" value={otp} onChange={(e) => setOtp(e.target.value)} required maxLength="6" />
-                  <input type="password" placeholder="New Password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength="6" />
+                  <input type="password" placeholder="New Password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" data-lpignore="true" data-form-type="other" required minLength="6" />
                   <button type="submit" disabled={loading}>{loading ? "Resetting..." : "Reset Password"}</button>
                 </form>
               )}

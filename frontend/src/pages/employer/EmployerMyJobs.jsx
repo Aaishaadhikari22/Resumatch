@@ -15,31 +15,34 @@ export default function EmployerMyJobs() {
   const [locationFilter, setLocationFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState(""); // pending, approved, rejected
   const [sortBy, setSortBy] = useState("date"); // date, applicants, match
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Modals
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobToDelete, setJobToDelete] = useState(null);
 
-  const fetchJobs = async () => {
-    try {
-      const token = localStorage.getItem("employerToken");
-      if (!token) return navigate("/employer/login");
-
-      const res = await API.get("/employer/jobs?limit=1000"); // fetch all for local filtering
-      setJobs(Array.isArray(res.data) ? res.data : res.data.jobs || []);
-    } catch (err) {
-      console.log(err);
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        navigate("/employer/login");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const token = localStorage.getItem("employerToken");
+        if (!token) return navigate("/employer/login");
+
+        const res = await API.get("/employer/jobs?limit=1000"); // fetch all for local filtering
+        setJobs(Array.isArray(res.data) ? res.data : res.data.jobs || []);
+      } catch (err) {
+        console.log(err);
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          navigate("/employer/login");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchJobs();
-  }, [navigate, fetchJobs]);
+  }, [navigate]);
 
   const handleDelete = async () => {
     if (!jobToDelete) return;
@@ -76,6 +79,12 @@ export default function EmployerMyJobs() {
   // Extract unique locations for the filter
   const uniqueLocations = [...new Set(jobs.map(j => j.location || j.city).filter(Boolean))];
 
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredAndSortedJobs.length / ITEMS_PER_PAGE);
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const paginatedJobs = filteredAndSortedJobs.slice(startIdx, endIdx);
+
   if (loading) {
     return <div className="emp-loading"><h3>Loading your jobs...</h3></div>;
   }
@@ -95,13 +104,13 @@ export default function EmployerMyJobs() {
             type="text" 
             placeholder="🔍 Search by job title..." 
             value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             style={{ padding: "10px", borderRadius: "5px", border: "1px solid #ccc", flex: 1, minWidth: "200px" }}
           />
 
           <select 
             value={locationFilter} 
-            onChange={(e) => setLocationFilter(e.target.value)}
+            onChange={(e) => { setLocationFilter(e.target.value); setCurrentPage(1); }}
             style={{ padding: "10px", borderRadius: "5px", border: "1px solid #ccc" }}
           >
             <option value="">📍 All Locations</option>
@@ -112,7 +121,7 @@ export default function EmployerMyJobs() {
 
           <select 
             value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
             style={{ padding: "10px", borderRadius: "5px", border: "1px solid #ccc" }}
           >
             <option value="">📊 All Statuses</option>
@@ -123,7 +132,7 @@ export default function EmployerMyJobs() {
 
           <select 
             value={sortBy} 
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
             style={{ padding: "10px", borderRadius: "5px", border: "1px solid #ccc" }}
           >
             <option value="date">📅 Sort by Date</option>
@@ -146,17 +155,18 @@ export default function EmployerMyJobs() {
       ) : filteredAndSortedJobs.length === 0 ? (
           <div className="emp-empty-state">
              <h3>No jobs match your filters.</h3>
-             <button onClick={() => {setSearchTerm(""); setLocationFilter(""); setStatusFilter("");}} style={{ padding: "10px", marginTop: "10px", cursor: "pointer"}}>Clear Filters</button>
+             <button onClick={() => {setSearchTerm(""); setLocationFilter(""); setStatusFilter(""); setCurrentPage(1);}} style={{ padding: "10px", marginTop: "10px", cursor: "pointer"}}>Clear Filters</button>
           </div>
       ) : (
-        <div className="emp-jobs-grid">
-          {filteredAndSortedJobs.map((job) => (
+        <>
+          <div className="emp-jobs-grid">
+            {paginatedJobs.map((job) => (
             <div key={job._id} className="emp-job-card">
               {/* Job Image Cover */}
               {job.jobImage && job.jobImage.filePath ? (
                 <div className="emp-job-image-container">
                   <img 
-                    src={`http://localhost:5000${job.jobImage.filePath}`} 
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${job.jobImage.filePath}`} 
                     alt={job.title}
                     className="emp-job-cover-image"
                     onError={(e) => {
@@ -230,7 +240,45 @@ export default function EmployerMyJobs() {
               </div>
             </div>
           ))}
-        </div>
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="pagination-container">
+              <button
+                className="pagination-btn secondary"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                ← Previous
+              </button>
+
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    className={`pagination-btn ${currentPage === page ? "primary" : "secondary"}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                className="pagination-btn secondary"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Next →
+              </button>
+
+              <span className="pagination-summary">
+                Page {currentPage} of {totalPages} • Showing {Math.min(startIdx + 1, filteredAndSortedJobs.length)}-{Math.min(endIdx, filteredAndSortedJobs.length)} of {filteredAndSortedJobs.length}
+              </span>
+            </div>
+          )}
+        </>
       )}
 
       {/* JOB DETAILS MODAL */}

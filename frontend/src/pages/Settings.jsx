@@ -288,15 +288,15 @@ export default function Settings() {
               <p className="settings-subtext">Change your password and manage session security.</p>
               <div className="settings-field">
                 <label>Current Password</label>
-                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" />
               </div>
               <div className="settings-field">
                 <label>New Password</label>
-                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" data-lpignore="true" data-form-type="other" />
               </div>
               <div className="settings-field">
                 <label>Confirm New Password</label>
-                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" data-lpignore="true" data-form-type="other" />
               </div>
               <button className="save-btn" onClick={handleChangePassword}>Update Password</button>
             </>

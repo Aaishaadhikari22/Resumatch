@@ -171,14 +171,14 @@ export default function EmployerLogin() {
               <p>{otpSent ? "Enter the OTP sent to your email and your new password." : "Enter your email to receive a password reset OTP."}</p>
               
               {!otpSent ? (
-                <form onSubmit={handleSendOTP}>
-                  <input type="email" placeholder="Email Address" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required />
+                <form onSubmit={handleSendOTP} autoComplete="off">
+                  <input type="email" placeholder="Email Address" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} autoComplete="off" data-lpignore="true" required />
                   <button type="submit" disabled={loading}>{loading ? "Sending..." : "Send Reset OTP"}</button>
                 </form>
               ) : (
-                <form onSubmit={handleResetPassword}>
+                <form onSubmit={handleResetPassword} autoComplete="off">
                   <input type="text" placeholder="6-digit OTP" value={otp} onChange={(e) => setOtp(e.target.value)} required maxLength="6" />
-                  <input type="password" placeholder="New Password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength="6" />
+                  <input type="password" placeholder="New Password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" data-lpignore="true" data-form-type="other" required minLength="6" />
                   <button type="submit" disabled={loading}>{loading ? "Resetting..." : "Reset Password"}</button>
                 </form>
               )}

@@ -23,6 +23,7 @@ const seedDB = async () => {
         email: "alice@technova.com",
         password: passwordHash,
         status: "approved",
+        isEmailVerified: true,
         companyDescription: "Leading provider of cloud infrastructure and computing solutions.",
         industryType: "Technology",
         employeeCount: "500-1000",
@@ -37,6 +38,7 @@ const seedDB = async () => {
         email: "bob@globalfinserve.com",
         password: passwordHash,
         status: "approved",
+        isEmailVerified: true,
         companyDescription: "Innovative financial tech company.",
         industryType: "Finance",
         employeeCount: "100-500",
@@ -117,6 +119,7 @@ const seedDB = async () => {
         status: "active",
         city: "Seattle",
         phone: "555-1234",
+        isEmailVerified: true,
         profileCompletion: {
            isProfilePhotoUploaded: false,
            isPhoneVerified: true,
@@ -133,6 +136,7 @@ const seedDB = async () => {
         status: "active",
         city: "Chicago",
         phone: "555-5678",
+        isEmailVerified: true,
         profileCompletion: {
            isProfilePhotoUploaded: false,
            isPhoneVerified: true,

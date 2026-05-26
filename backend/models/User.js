@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
 
 const profileDocumentSchema = new mongoose.Schema({
-  documentType: { type: String, enum: ["id", "passport", "license", "certificate", "other"], required: true },
+  documentType: { type: String, enum: ["id", "passport", "license", "certificate", "registration", "citizenship", "other"], required: true },
   fileName: String,
   filePath: String,
   uploadedAt: { type: Date, default: Date.now },
+  status: { type: String, enum: ["uploaded", "pending", "approved", "not_verified"], default: "uploaded" },
   isVerified: { type: Boolean, default: false },
   verifiedBy: String
 }, { _id: true });

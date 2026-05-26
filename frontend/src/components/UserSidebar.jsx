@@ -22,18 +22,18 @@ const UserSidebar = () => {
   }, [isDarkMode]);
 
   const menuItems = [
-    { name: "Dashboard", path: "/user/dashboard", icon: "🏠" },
-    { name: "My Profile", path: "/user/profile", icon: "👤" },
-    { name: "My Resume", path: "/user/resume", icon: "📋" },
-    { name: "Matches & Jobs", path: "/user/recommendations", icon: "🎯" },
-    { name: "My Applications", path: "/user/applications", icon: "📄" },
-    { name: "Saved Jobs", path: "/user/saved-jobs", icon: "💼" },
-    { name: "Settings", path: "/user/settings", icon: "⚙️" },
+    { name: "Dashboard", path: "/jobseeker/dashboard", icon: "🏠" },
+    { name: "My Profile", path: "/jobseeker/profile", icon: "👤" },
+    { name: "My Resume", path: "/jobseeker/resume", icon: "📋" },
+    { name: "Matches & Jobs", path: "/jobseeker/recommendations", icon: "🎯" },
+    { name: "My Applications", path: "/jobseeker/applications", icon: "📄" },
+    { name: "Saved Jobs", path: "/jobseeker/saved-jobs", icon: "💼" },
+    { name: "Settings", path: "/jobseeker/settings", icon: "⚙️" },
   ];
 
   const handleLogout = () => {
     clearAuthStorage();
-    navigate("/user/login");
+    navigate("/jobseeker/login");
   };
 
   return (

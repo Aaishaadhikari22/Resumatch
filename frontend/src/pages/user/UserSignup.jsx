@@ -68,7 +68,7 @@ export default function UserSignup() {
         userId, otp
       });
       alert(res.data.msg || "Email verified! You can now log in.");
-      navigate("/user/login");
+      navigate("/jobseeker/login");
     } catch (error) {
       console.log(error);
       alert(error.response?.data?.msg || "OTP verification failed");
@@ -88,9 +88,9 @@ export default function UserSignup() {
             <>
               <h2>Create Job Seeker Account</h2>
               <p>Kickstart your career with ResuMatch</p>
-              <form onSubmit={handleSignup}>
-                <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} required />
-                <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <form onSubmit={handleSignup} autoComplete="off">
+                <input type="text" placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" required />
+                <input type="email" placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" data-lpignore="true" required />
                 <input
                   type="password"
                   placeholder="Password"
@@ -99,6 +99,9 @@ export default function UserSignup() {
                     setPassword(e.target.value);
                     setPasswordError(validatePassword(e.target.value));
                   }}
+                  autoComplete="new-password"
+                  data-lpignore="true"
+                  data-form-type="other"
                   required
                 />
                 {passwordError && <div className="auth-error">{passwordError}</div>}
@@ -108,7 +111,7 @@ export default function UserSignup() {
               </form>
               <p className="auth-link">
                 Already have an account?
-                <a href="/user/login"> Login</a>
+                <a href="/jobseeker/login"> Login</a>
               </p>
             </>
           ) : (

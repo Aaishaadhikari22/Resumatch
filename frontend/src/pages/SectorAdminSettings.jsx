@@ -306,18 +306,18 @@ export default function SectorAdminSettings() {
 
               <div className="settings-field" style={{ marginBottom: "16px", maxWidth: "400px" }}>
                 <label>Current Password</label>
-                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Enter current password" />
+                <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Enter current password" autoComplete="current-password" />
               </div>
               <div className="settings-row" style={{ maxWidth: "400px" }}>
                 <div className="settings-field">
                   <label>New Password</label>
-                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 6 characters" />
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 6 characters" autoComplete="new-password" data-lpignore="true" data-form-type="other" />
                 </div>
               </div>
               <div className="settings-row" style={{ maxWidth: "400px" }}>
                 <div className="settings-field">
                   <label>Confirm New Password</label>
-                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" />
+                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" autoComplete="new-password" data-lpignore="true" data-form-type="other" />
                 </div>
               </div>
 

@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import API from "../api/axios";
+import { useSocket } from "../hooks/useSocket.jsx";
 import ResumeViewerModal from "../components/ResumeViewerModal";
+import "./admin.css";
 
 export default function ApplicationsManagement() {
   const [applications, setApplications] = useState([]);
@@ -8,23 +10,32 @@ export default function ApplicationsManagement() {
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedResume, setSelectedResume] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const socket = useSocket();
 
-  const fetchApplications = async () => {
+  const ITEMS_PER_PAGE = 10;
+
+  const fetchApplications = useCallback(async () => {
     try {
       const res = await API.get("/admin/applications");
       setApplications(res.data);
     } catch (_err) {
       console.log(_err);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    const loadApplications = async () => {
-      await fetchApplications();
-    };
+    fetchApplications();
+  }, [fetchApplications]);
 
-    loadApplications();
-  }, []);
+  // Listen for real-time updates from socket
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("dashboard:refresh", fetchApplications);
+    return () => {
+      socket.off("dashboard:refresh", fetchApplications);
+    };
+  }, [socket, fetchApplications]);
 
   const updateStatus = async (id, status) => {
     try {
@@ -67,6 +78,10 @@ return matchSearch && matchStatus;
 
 });
 
+const totalPages = Math.ceil(filteredApplications.length / ITEMS_PER_PAGE);
+const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+const endIdx = startIdx + ITEMS_PER_PAGE;
+const paginatedApplications = filteredApplications.slice(startIdx, endIdx);
 
 const total = applications.length;
 const pending = applications.filter(a=>a.status==="pending").length;
@@ -79,8 +94,10 @@ return(
 
 <div className="applications-page">
 
-<h2>Applications Management</h2>
-
+<div className="page-header">
+  <h2>Applications Management</h2>
+  <p>Review and manage incoming applications with clear actions and pagination.</p>
+</div>
 
 {/* STATS CARDS */}
 
@@ -111,26 +128,25 @@ return(
 
 {/* SEARCH + FILTER */}
 
-<div className="applications-filter">
+<div className="filter-row">
+  <input
+    type="text"
+    autoComplete="off"
+    placeholder="Search Applicant"
+    value={search}
+    onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+    className="search-input"
+  />
 
-<input
-placeholder="Search Applicant"
-value={search}
-onChange={(e)=>setSearch(e.target.value)}
-/>
-
-<select
-value={statusFilter}
-onChange={(e)=>setStatusFilter(e.target.value)}
->
-
-<option value="">All Status</option>
-<option value="pending">Pending</option>
-<option value="accepted">Accepted</option>
-<option value="rejected">Rejected</option>
-
-</select>
-
+  <select
+    value={statusFilter}
+    onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+  >
+    <option value="">All Status</option>
+    <option value="pending">Pending</option>
+    <option value="accepted">Accepted</option>
+    <option value="rejected">Rejected</option>
+  </select>
 </div>
 
 
@@ -152,7 +168,7 @@ onChange={(e)=>setStatusFilter(e.target.value)}
 
 <tbody>
 
-{filteredApplications.length === 0 ? (
+{paginatedApplications.length === 0 ? (
 
 <tr>
 <td colSpan="5" className="no-data">
@@ -160,7 +176,7 @@ No Applications Found
 </td>
 </tr>
 
-):(filteredApplications.map(app=>(
+):(paginatedApplications.map(app=>(
 
 <tr key={app._id}>
 
@@ -216,6 +232,43 @@ Reject
 </tbody>
 
 </table>
+
+{/* Pagination Controls */}
+{totalPages > 1 && (
+  <div className="pagination-container">
+    <button
+      className="pagination-btn secondary"
+      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+      disabled={currentPage === 1}
+    >
+      ← Previous
+    </button>
+
+    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+        <button
+          key={page}
+          className={`pagination-btn ${currentPage === page ? "primary" : "secondary"}`}
+          onClick={() => setCurrentPage(page)}
+        >
+          {page}
+        </button>
+      ))}
+    </div>
+
+    <button
+      className="pagination-btn secondary"
+      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+      disabled={currentPage === totalPages}
+    >
+      Next →
+    </button>
+
+    <span className="pagination-summary">
+      Page {currentPage} of {totalPages} • Showing {Math.min(startIdx + 1, filteredApplications.length)}-{Math.min(endIdx, filteredApplications.length)} of {filteredApplications.length}
+    </span>
+  </div>
+)}
 
 {/* Resume Viewer Modal */}
 {selectedResume && selectedUser && (

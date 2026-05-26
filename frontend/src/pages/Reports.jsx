@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import API from "../api/axios";
+import { useSocket } from "../hooks/useSocket.jsx";
 import {
   BarChart,
   Bar,
@@ -23,32 +24,83 @@ import {
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import Alert from "../components/common/Alert";
 
+// Custom Tooltip Component for Activity Chart
+function ActivityTooltip({ active, payload, label, activeSeriesKey }) {
+  if (active && payload && payload.length > 0) {
+    // Find the specific series data based on which line is hovered
+    let displayData = null;
+    
+    if (activeSeriesKey === 'jobs') {
+      displayData = payload.find(p => p.dataKey === 'jobs');
+    } else if (activeSeriesKey === 'signups') {
+      displayData = payload.find(p => p.dataKey === 'signups');
+    }
+    
+    // If no specific data found, show first available
+    if (!displayData) {
+      displayData = payload[0];
+    }
+    
+    if (!displayData) return null;
+    
+    return (
+      <div style={{
+        background: "white",
+        padding: "10px 14px",
+        border: `3px solid ${displayData.stroke || displayData.color}`,
+        borderRadius: "6px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+      }}>
+        <p style={{ margin: "0 0 6px 0", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
+          {label}
+        </p>
+        <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: displayData.stroke || displayData.color }}>
+          {displayData.name}: {displayData.value}
+        </p>
+      </div>
+    );
+  }
+  return null;
+}
+
 export default function Reports() {
   const [stats, setStats] = useState(null);
   const [advanced, setAdvanced] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeSeriesKey, setActiveSeriesKey] = useState(null);
+  const socket = useSocket();
+
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [statsRes, advancedRes] = await Promise.all([
+        API.get("/report/stats"),
+        API.get("/admin/advanced-stats")
+      ]);
+      setStats(statsRes.data);
+      setAdvanced(advancedRes.data);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load platform analytics. Please refresh the page.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchAllData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [statsRes, advancedRes] = await Promise.all([
-          API.get("/report/stats"),
-          API.get("/admin/advanced-stats")
-        ]);
-        setStats(statsRes.data);
-        setAdvanced(advancedRes.data);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load platform analytics. Please refresh the page.");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
+
+  // Listen for real-time updates from socket
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("dashboard:refresh", fetchAllData);
+    return () => {
+      socket.off("dashboard:refresh", fetchAllData);
+    };
+  }, [socket, fetchAllData]);
 
   if (loading) {
     return (
@@ -134,10 +186,29 @@ export default function Reports() {
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" />
               <YAxis />
-              <Tooltip />
+              <Tooltip 
+                content={(props) => <ActivityTooltip {...props} activeSeriesKey={activeSeriesKey} />}
+                cursor={{ strokeDasharray: '3 3' }}
+              />
               <Legend verticalAlign="top" align="right" height={36}/>
-              <Line type="stepAfter" dataKey="signups" stroke="#10b981" strokeWidth={3} dot={{ r: 6 }} />
-              <Line type="stepAfter" dataKey="jobs" stroke="#ef4444" strokeWidth={3} dot={{ r: 6 }} />
+              <Line 
+                type="stepAfter" 
+                dataKey="signups" 
+                stroke="#10b981" 
+                strokeWidth={3} 
+                dot={{ r: 6 }}
+                onMouseEnter={() => setActiveSeriesKey('signups')}
+                onMouseLeave={() => setActiveSeriesKey(null)}
+              />
+              <Line 
+                type="stepAfter" 
+                dataKey="jobs" 
+                stroke="#ef4444" 
+                strokeWidth={3} 
+                dot={{ r: 6 }}
+                onMouseEnter={() => setActiveSeriesKey('jobs')}
+                onMouseLeave={() => setActiveSeriesKey(null)}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>

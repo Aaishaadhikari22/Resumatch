@@ -39,6 +39,20 @@ color:#0f172a;
 font-family:"Inter",sans-serif;
 }
 
+.app-main-content {
+  flex: 1;
+  background-color: #f4f6f9;
+  color: #0f172a;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 100vh;
+}
+
+body.dark-mode .app-main-content {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
 
 /* LINKS */
 

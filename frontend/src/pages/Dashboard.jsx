@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import API from "../api/axios";
-import { useSocket } from "../hooks/useSocket.jsx";
+import { useSocket } from "../hooks/useSocketHook";
 import "./dashboard.css";
 import { useNavigate } from "react-router-dom";
 import NotificationBell from "../components/NotificationBell";
@@ -34,6 +34,43 @@ const GrowthIndicator = ({ value }) => {
   );
 };
 
+// Custom Tooltip for Platform Growth Chart
+function GrowthTooltip({ active, payload, label, activeSeries }) {
+  if (active && payload && payload.length > 0) {
+    let displayData = null;
+    
+    if (activeSeries === 'jobs') {
+      displayData = payload.find(p => p.dataKey === 'jobs');
+    } else if (activeSeries === 'users') {
+      displayData = payload.find(p => p.dataKey === 'users');
+    }
+    
+    if (!displayData) {
+      displayData = payload[0];
+    }
+    
+    if (!displayData) return null;
+    
+    return (
+      <div style={{
+        background: "white",
+        padding: "10px 14px",
+        border: `3px solid ${displayData.stroke || displayData.color}`,
+        borderRadius: "6px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+      }}>
+        <p style={{ margin: "0 0 6px 0", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
+          {label}
+        </p>
+        <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: displayData.stroke || displayData.color }}>
+          {displayData.name}: {displayData.value}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
 
@@ -56,6 +93,8 @@ export default function Dashboard() {
   });
   
   const [chartData, setChartData] = useState([]);
+  const [visibleLines, setVisibleLines] = useState({ users: true, jobs: true });
+  const [activeGrowthSeries, setActiveGrowthSeries] = useState(null);
   const socket = useSocket();
 
   const fetchStats = useCallback(async () => {
@@ -84,6 +123,13 @@ export default function Dashboard() {
     await Promise.all([fetchStats(), fetchLogs()]);
     setLoading(false);
   }, [fetchStats, fetchLogs]);
+
+  const handleLegendClick = (dataKey) => {
+    setVisibleLines(prev => ({
+      ...prev,
+      [dataKey]: !prev[dataKey]
+    }));
+  };
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -195,6 +241,45 @@ export default function Dashboard() {
           <div className="dashboard-main-flex">
             <div className="chart-card flex-2">
               <h3 className="chart-title">Platform Growth Overview</h3>
+              <div style={{ display: "flex", gap: "20px", marginBottom: "20px", flexWrap: "wrap" }}>
+                <div
+                  onClick={() => handleLegendClick("users")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                    backgroundColor: visibleLines.users ? "#dbeafe" : "#f1f5f9",
+                    border: visibleLines.users ? "2px solid #2563eb" : "1px solid #cbd5e1",
+                    opacity: visibleLines.users ? 1 : 0.6,
+                    transition: "all 0.2s"
+                  }}
+                >
+                  <span style={{ display: "inline-block", width: "12px", height: "12px", backgroundColor: "#2563eb", borderRadius: "2px" }}></span>
+                  <span style={{ fontWeight: 500, color: "#1e293b" }}>Users</span>
+                </div>
+                <div
+                  onClick={() => handleLegendClick("jobs")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                    backgroundColor: visibleLines.jobs ? "#f3e8ff" : "#f1f5f9",
+                    border: visibleLines.jobs ? "2px solid #7c3aed" : "1px solid #cbd5e1",
+                    opacity: visibleLines.jobs ? 1 : 0.6,
+                    transition: "all 0.2s"
+                  }}
+                >
+                  <span style={{ display: "inline-block", width: "12px", height: "12px", backgroundColor: "#7c3aed", borderRadius: "2px" }}></span>
+                  <span style={{ fontWeight: 500, color: "#1e293b" }}>Jobs</span>
+                </div>
+              </div>
+              <p style={{ fontSize: "12px", color: "#64748b", marginBottom: "10px" }}>💡 Click legend items to show/hide specific data lines</p>
               <ResponsiveContainer width="100%" height={350}>
                 <AreaChart data={chartData}>
                   <defs>
@@ -211,14 +296,33 @@ export default function Dashboard() {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip
-                    contentStyle={{
-                      borderRadius: "12px",
-                      border: "none",
-                      boxShadow: "0 10px 25px rgba(0,0,0,0.15)"
-                    }}
+                    content={(props) => <GrowthTooltip {...props} activeSeries={activeGrowthSeries} />}
+                    cursor={{ fill: '#f1f5f9', radius: 8 }}
                   />
-                  <Area type="monotone" dataKey="users" stroke="#2563eb" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" />
-                  <Area type="monotone" dataKey="jobs" stroke="#7c3aed" strokeWidth={3} fillOpacity={1} fill="url(#colorJobs)" />
+                  {visibleLines.users && (
+                    <Area 
+                      type="monotone" 
+                      dataKey="users" 
+                      stroke="#2563eb" 
+                      strokeWidth={3} 
+                      fillOpacity={1} 
+                      fill="url(#colorUsers)"
+                      onMouseEnter={() => setActiveGrowthSeries('users')}
+                      onMouseLeave={() => setActiveGrowthSeries(null)}
+                    />
+                  )}
+                  {visibleLines.jobs && (
+                    <Area 
+                      type="monotone" 
+                      dataKey="jobs" 
+                      stroke="#7c3aed" 
+                      strokeWidth={3} 
+                      fillOpacity={1} 
+                      fill="url(#colorJobs)"
+                      onMouseEnter={() => setActiveGrowthSeries('jobs')}
+                      onMouseLeave={() => setActiveGrowthSeries(null)}
+                    />
+                  )}
                 </AreaChart>
               </ResponsiveContainer>
             </div>

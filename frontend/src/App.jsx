@@ -21,7 +21,6 @@ import AdminManagement from "./pages/AdminManagement";
 
 import AdminLogin from "./pages/AdminLogin";
 import AdminSignup from "./pages/AdminSignup";
-import AuthChoice from "./pages/AuthChoice";
 
 // --- USER COMPONENT IMPORTS ---
 import UserSidebar from "./components/UserSidebar";
@@ -30,6 +29,7 @@ import UserProtectedRoute from "./components/UserProtectedRoute";
 import UserDashboard from "./pages/user/UserDashboard";
 import MyResume from "./pages/user/MyResume";
 import JobRecommendations from "./pages/user/JobRecommendations";
+import JobDetails from "./pages/user/JobDetails";
 import UserApplications from "./pages/user/UserApplications";
 import SavedJobs from "./pages/user/SavedJobs";
 import UserSettings from "./pages/user/UserSettings";
@@ -65,12 +65,11 @@ function App() {
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/signup" element={<AdminSignup />} />
 
-        {/* GENERAL AUTH CHOICE */}
-        <Route path="/auth" element={<AuthChoice />} />
-
         {/* USER LOGIN & SIGNUP (NO SIDEBAR) */}
         <Route path="/user/login" element={<UserLogin />} />
         <Route path="/user/signup" element={<UserSignup />} />
+        <Route path="/jobseeker/login" element={<UserLogin />} />
+        <Route path="/jobseeker/signup" element={<UserSignup />} />
 
         {/* EMPLOYER LOGIN & SIGNUP (NO SIDEBAR) */}
         <Route path="/employer/login" element={<EmployerLogin />} />
@@ -94,10 +93,9 @@ function App() {
 
                 {/* User Main Content */}
                 <div
+                  className="app-main-content"
                   style={{
                     flex: 1,
-                    backgroundColor: "#f4f6f9",
-                    color: "#0f172a",
                     padding: "0",
                     overflowY: "auto",
                   }}
@@ -107,6 +105,46 @@ function App() {
                     <Route path="dashboard" element={<UserDashboard />} />
                     <Route path="resume" element={<MyResume />} />
                     <Route path="recommendations" element={<JobRecommendations />} />
+                    <Route path="job/:id" element={<JobDetails />} />
+                    <Route path="applications" element={<UserApplications />} />
+                    <Route path="saved-jobs" element={<SavedJobs />} />
+                    <Route path="settings" element={<UserSettings />} />
+                    <Route path="profile" element={<UserProfileNew />} />
+                    <Route path="profile-preview" element={<UserProfilePreview />} />
+                  </Routes>
+                </div>
+              </div>
+            </UserProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/jobseeker/*"
+          element={
+            <UserProtectedRoute>
+              <div
+                style={{
+                  display: "flex",
+                  height: "100vh",
+                  width: "100vw",
+                  overflow: "hidden",
+                }}
+              >
+                <UserSidebar />
+                <div
+                  className="app-main-content"
+                  style={{
+                    flex: 1,
+                    padding: "0",
+                    overflowY: "auto",
+                  }}
+                >
+                  <Routes>
+                    <Route index element={<Navigate to="dashboard" replace />} />
+                    <Route path="dashboard" element={<UserDashboard />} />
+                    <Route path="resume" element={<MyResume />} />
+                    <Route path="recommendations" element={<JobRecommendations />} />
+                    <Route path="job/:id" element={<JobDetails />} />
                     <Route path="applications" element={<UserApplications />} />
                     <Route path="saved-jobs" element={<SavedJobs />} />
                     <Route path="settings" element={<UserSettings />} />
@@ -137,15 +175,15 @@ function App() {
 
                 {/* Employer Main Content */}
                 <div
+                  className="app-main-content"
                   style={{
                     flex: 1,
-                    backgroundColor: "#f4f6f9",
-                    color: "#0f172a",
                     padding: "0",
                     overflowY: "auto",
                   }}
                 >
                   <Routes>
+                    <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<EmployerDashboard />} />
                     <Route path="post-job" element={<EmployerPostJob />} />
                     <Route path="my-jobs" element={<EmployerMyJobs />} />
@@ -160,7 +198,7 @@ function App() {
 
         {/* ADMIN DASHBOARD SYSTEM */}
         <Route
-          path="/*"
+          path="/admin/*"
           element={
             <ProtectedRoute>
               <div
@@ -176,15 +214,15 @@ function App() {
 
                 {/* Admin Main Content */}
                 <div
+                  className="app-main-content"
                   style={{
                     flex: 1,
-                    backgroundColor: "#f4f6f9",
-                    color: "#0f172a",
                     padding: "0",
                     overflowY: "auto",
                   }}
                 >
                   <Routes>
+                    <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="employers" element={<Employers />} />
                     <Route path="jobs" element={<Jobs />} />
@@ -205,6 +243,7 @@ function App() {
           }
         />
 
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
     </SocketProvider>

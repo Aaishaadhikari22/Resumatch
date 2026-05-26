@@ -3,9 +3,12 @@ import http from "http";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
+import compression from "compression";
+import rateLimit from "express-rate-limit";
 
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import publicRoutes from "./routes/publicRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import resumeRoutes from "./routes/resume.js";
@@ -25,13 +28,54 @@ const app = express();
 
 /* ================= MIDDLEWARE ================= */
 
+// Compression middleware - reduces response size by ~70%
+app.use(compression());
+
+// CORS configuration
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: ["http://localhost:5173", "http://localhost:5174"],
   credentials: true
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Request parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Cache headers for static assets
+app.use((req, res, next) => {
+  if (req.path.startsWith('/uploads') || req.path.startsWith('/public')) {
+    res.set('Cache-Control', 'public, max-age=86400'); // 24 hours
+  }
+  next();
+});
+
+// Request timeout (prevent hanging requests)
+app.use((req, res, next) => {
+  req.setTimeout(30000); // 30 seconds
+  res.setTimeout(30000);
+  next();
+});
+
+// Rate limiting - prevent abuse
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter rate limit for auth routes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50, // 50 attempts per 15 min for auth
+  skipSuccessfulRequests: true,
+});
+
+app.use('/api/', limiter);
+app.use('/api/auth', authLimiter);
+app.use('/api/auth/user', authLimiter);
+app.use('/api/auth/employer', authLimiter);
 
 /* ================= ROUTES ================= */
 
@@ -41,6 +85,7 @@ app.use("/api/auth/employer", employerAuthRoutes);
 app.use("/api/auth", authRoutes);
 
 app.use("/api/admin", adminRoutes);
+app.use("/api", publicRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/role", roleRoutes);
 app.use("/api/resume", resumeRoutes);
@@ -54,8 +99,14 @@ app.use("/api/notifications", notificationRoutes);
 
 /* ================= DATABASE ================= */
 
-mongoose.connect("mongodb://127.0.0.1:27017/resumatch")
-.then(() => console.log("MongoDB connected"))
+mongoose.connect("mongodb://127.0.0.1:27017/resumatch", {
+  maxPoolSize: 10,
+  minPoolSize: 5,
+  socketTimeoutMS: 45000,
+  serverSelectionTimeoutMS: 5000,
+  retryWrites: true
+})
+.then(() => console.log("MongoDB connected with connection pooling"))
 .catch(err => console.log(err));
 
 /* ================= TEST ROUTE ================= */
@@ -66,7 +117,7 @@ app.get("/", (req,res)=>{
 
 /* ================= SERVER ================= */
 
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 initSocket(server);
 

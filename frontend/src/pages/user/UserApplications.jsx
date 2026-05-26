@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import API from "../../api/axios";
 import "../admin.css";
 import { useNavigate } from "react-router-dom";
@@ -9,27 +9,31 @@ export default function UserApplications() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [sortBy, setSortBy] = useState("latest");
   const [withdrawingId, setWithdrawingId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const navigate = useNavigate();
 
-  const fetchApplications = useCallback(async () => {
+  const ITEMS_PER_PAGE = 10;
+
+  const refreshApplications = async () => {
     try {
       const res = await API.get("/user/applications");
       setApps(res.data);
     } catch (err) {
       console.log(err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, []);
+  };
 
   useEffect(() => {
-    fetchApplications();
-  }, [fetchApplications]);
+    refreshApplications();
+  }, []);
 
   const handleWithdraw = async (appId) => {
     try {
       await API.delete(`/user/applications/${appId}`);
       setWithdrawingId(null);
-      fetchApplications();
+      refreshApplications();
     } catch (err) {
       console.log(err);
       setWithdrawingId(null);
@@ -56,6 +60,11 @@ export default function UserApplications() {
     }
   };
 
+  const isDeadlinePassed = (deadline) => {
+    if (!deadline) return false;
+    return new Date(deadline) < new Date();
+  };
+
   if (loading) return <div style={{ padding: "40px" }}>Loading Applications...</div>;
 
   // Filter and Sort Output
@@ -67,6 +76,12 @@ export default function UserApplications() {
       if (sortBy === "match") return (b.similarityScore || 0) - (a.similarityScore || 0);
       return 0;
     });
+
+  // Pagination Logic
+  const totalPages = Math.ceil(displayedApps.length / ITEMS_PER_PAGE);
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const paginatedApps = displayedApps.slice(startIdx, endIdx);
 
   return (
     <div className="admin-page">
@@ -83,7 +98,7 @@ export default function UserApplications() {
           <label style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b", display: "block", marginBottom: "5px" }}>Filter by Status</label>
           <select 
             value={filterStatus} 
-            onChange={(e) => setFilterStatus(e.target.value)}
+            onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
             style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }}
           >
             <option value="all">All Statuses</option>
@@ -97,7 +112,7 @@ export default function UserApplications() {
           <label style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b", display: "block", marginBottom: "5px" }}>Sort By</label>
           <select 
             value={sortBy} 
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
             style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e1" }}
           >
             <option value="latest">Latest Applied</option>
@@ -125,8 +140,9 @@ export default function UserApplications() {
           No applications match your filter.
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
-          {displayedApps.map(app => {
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
+            {paginatedApps.map(app => {
             const sColor = getStatusColor(app.status);
             return (
               <div key={app._id} className="admin-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px", transition: "all 0.2s" }} onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-2px)"} onMouseOut={(e) => e.currentTarget.style.transform = "translateY(0)"}>
@@ -150,6 +166,13 @@ export default function UserApplications() {
                       </span>
                     )}
                   </div>
+
+                  {/* Deadline Warning */}
+                  {app.job?.deadline && isDeadlinePassed(app.job.deadline) && (
+                    <div style={{ marginTop: "10px", background: "#fee2e2", border: "1px solid #fecaca", borderRadius: "6px", padding: "8px 12px", fontSize: "12px", color: "#dc2626", fontWeight: "600" }}>
+                      ⏰ Application deadline has passed ({new Date(app.job.deadline).toLocaleDateString()})
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", gap: "10px", flexDirection: "column", alignItems: "flex-end", minWidth: "160px" }}>
@@ -174,8 +197,46 @@ export default function UserApplications() {
                 </div>
               </div>
             );
-          })}
-        </div>
+            })}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="pagination-container">
+              <button
+                className="pagination-btn secondary"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                ← Previous
+              </button>
+
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    className={`pagination-btn ${currentPage === page ? "primary" : "secondary"}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                className="pagination-btn secondary"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Next →
+              </button>
+
+              <span className="pagination-summary">
+                Page {currentPage} of {totalPages} • Showing {Math.min(startIdx + 1, displayedApps.length)}-{Math.min(endIdx, displayedApps.length)} of {displayedApps.length}
+              </span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

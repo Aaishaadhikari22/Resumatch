@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import API from "../../api/axios";
 import { useToast } from "../../hooks/useToast";
 import Toast from "../../components/common/Toast";
@@ -7,29 +8,37 @@ import { formatSalary } from "../../utils/formatSalary";
 import "../admin.css"; // Reuse card styles
 
 export default function JobRecommendations() {
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [jobLoading, setJobLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterLocation, setFilterLocation] = useState("");
   const [sortBy, setSortBy] = useState("match"); // match, recent, salary
   const [applyingJobId, setApplyingJobId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const { showToast, toast, closeToast } = useToast();
+
+  const ITEMS_PER_PAGE = 10;
 
   const bestMatchScore = jobs.length > 0 ? Math.max(...jobs.map(job => job.similarityScore || 0)) : 0;
   const averageMatchScore = jobs.length > 0 ? Math.round(jobs.reduce((sum, job) => sum + (job.similarityScore || 0), 0) / jobs.length) : 0;
 
-  const fetchRecommendations = useCallback(async () => {
+  // Fetch recommendations function (defined outside useEffect so it can be called elsewhere)
+  const fetchRecommendations = async () => {
     setLoading(true);
     try {
       const res = await API.get("/user/jobs/recommended");
+      console.log('Recommendations API response:', res.data);
       setJobs(res.data?.jobs || []);
     } catch (err) {
       console.error(err);
-      showToast("Failed to load recommendations", "error");
+      try { showToast("Failed to load recommendations", "error"); } catch (e) {}
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  };
 
   useEffect(() => {
     fetchRecommendations();
@@ -59,6 +68,11 @@ export default function JobRecommendations() {
     }
   };
 
+  const isDeadlinePassed = (deadline) => {
+    if (!deadline) return false;
+    return new Date(deadline) < new Date();
+  };
+
   // Filter and Sort
   const filteredJobs = jobs
     .filter(job => 
@@ -77,6 +91,12 @@ export default function JobRecommendations() {
       }
       return 0;
     });
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredJobs.length / ITEMS_PER_PAGE);
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const paginatedJobs = filteredJobs.slice(startIdx, endIdx);
 
   if (loading) return <LoadingSpinner />;
 
@@ -113,7 +133,7 @@ export default function JobRecommendations() {
             type="text"
             placeholder="Search by title, company, or skills..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             style={{
               width: "100%",
               padding: "12px 16px 12px 40px",
@@ -132,7 +152,7 @@ export default function JobRecommendations() {
             type="text"
             placeholder="Location..."
             value={filterLocation}
-            onChange={(e) => setFilterLocation(e.target.value)}
+            onChange={(e) => { setFilterLocation(e.target.value); setCurrentPage(1); }}
             style={{
               width: "100%",
               padding: "12px 16px 12px 40px",
@@ -148,7 +168,7 @@ export default function JobRecommendations() {
 
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
+          onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
           style={{
             padding: "12px 16px",
             fontSize: "14px",
@@ -183,8 +203,9 @@ export default function JobRecommendations() {
           </button>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "25px" }}>
-          {filteredJobs.map(job => (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "25px" }}>
+            {paginatedJobs.map(job => (
             <div key={job._id} className="admin-card" 
               style={{ 
                 display: "flex", 
@@ -209,7 +230,15 @@ export default function JobRecommendations() {
             >
               <div style={{ flex: 1, paddingRight: "20px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-                  <h3 style={{ margin: 0, fontSize: "22px", color: "#1e293b", fontWeight: "800" }}>{job.title}</h3>
+                  <h3 style={{ margin: 0, fontSize: "22px", color: "#1e293b", fontWeight: "800", cursor: 'pointer' }} onClick={async () => {
+                    setJobLoading(true);
+                    try {
+                      const res = await API.get(`/user/jobs/${job._id}`);
+                      setSelectedJob(res.data.job || null);
+                    } catch (err) {
+                      console.error(err);
+                    } finally { setJobLoading(false); }
+                  }}>{job.title}</h3>
                   {job.isApplied && (
                     <span style={{ background: "#dcfce7", color: "#15803d", padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", border: "1px solid #bef264" }}>
                        Applied
@@ -218,6 +247,16 @@ export default function JobRecommendations() {
                   {job.isSaved && !job.isApplied && (
                     <span style={{ background: "#fef3c7", color: "#d97706", padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", border: "1px solid #fcd34d" }}>
                        Saved
+                    </span>
+                  )}
+                  {job.deadline && isDeadlinePassed(job.deadline) && (
+                    <span style={{ background: "#fee2e2", color: "#dc2626", padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", border: "1px solid #fecaca" }}>
+                       ⏰ Deadline Passed
+                    </span>
+                  )}
+                  {job.deadline && !isDeadlinePassed(job.deadline) && (
+                    <span style={{ background: "#fef3c7", color: "#d97706", padding: "4px 12px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", border: "1px solid #fde68a" }}>
+                       ⌛ Closing Soon
                     </span>
                   )}
                 </div>
@@ -280,11 +319,33 @@ export default function JobRecommendations() {
                         borderRadius: "4px"
                       }}></div>
                     </div>
+                    {/* Matched / Missing Skills */}
+                    <div style={{ marginTop: "12px", display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      { (job.matchDetails?.matchedSkills || job.bestMatch?.matchedSkills || []).length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          {(job.matchDetails?.matchedSkills || job.bestMatch?.matchedSkills || []).slice(0,5).map((s, i) => (
+                            <span key={`m-${i}`} style={{ background: '#ecfccb', color: '#166534', padding: '6px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 700 }}>
+                              ✓ {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      { (job.matchDetails?.unmatchedSkills || job.bestMatch?.unmatchedSkills || []).length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          {(job.matchDetails?.unmatchedSkills || job.bestMatch?.unmatchedSkills || []).slice(0,5).map((s, i) => (
+                            <span key={`u-${i}`} style={{ background: '#fff7f6', color: '#9f1239', padding: '6px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 700 }}>
+                              ✕ {s}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
 
-              <div style={{ width: "200px", display: "flex", flexDirection: "column", gap: "12px", paddingLeft: "24px", borderLeft: "1px solid #f1f5f9", justifyContent: "center" }}>
+                <div style={{ width: "200px", display: "flex", flexDirection: "column", gap: "12px", paddingLeft: "24px", borderLeft: "1px solid #f1f5f9", justifyContent: "center" }}>
                 <button 
                   onClick={() => handleApply(job._id, job.employer?._id)}
                   disabled={job.isApplied || applyingJobId === job._id}
@@ -322,9 +383,139 @@ export default function JobRecommendations() {
                 >
                   {job.isSaved ? "Saved" : "Save Job"}
                 </button>
+                <button onClick={async () => { setJobLoading(true); try { const res = await API.get(`/user/jobs/${job._id}`); setSelectedJob(res.data.job || null); } catch(e){console.error(e);} finally { setJobLoading(false);} }} style={{ width: '100%', padding: '10px', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>👁️ View Job</button>
               </div>
             </div>
           ))}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="pagination-container">
+              <button
+                className="pagination-btn secondary"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                ← Previous
+              </button>
+
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    className={`pagination-btn ${currentPage === page ? "primary" : "secondary"}`}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                className="pagination-btn secondary"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Next →
+              </button>
+
+              <span className="pagination-summary">
+                Page {currentPage} of {totalPages} • Showing {Math.min(startIdx + 1, filteredJobs.length)}-{Math.min(endIdx, filteredJobs.length)} of {filteredJobs.length}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Job Details Modal for seekers */}
+      {selectedJob && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+          <div style={{ background: '#fff', width: '95%', maxWidth: 800, borderRadius: 16, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '24px', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ flex: 1 }}>
+                <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: '700', color: '#1f2937' }}>{selectedJob.title}</h2>
+                <div style={{ color: '#6b7280', fontSize: '14px' }}>{selectedJob.employer?.companyName || 'Unknown Company'}</div>
+              </div>
+              <button onClick={() => setSelectedJob(null)} style={{ background: 'transparent', border: 'none', fontSize: '32px', cursor: 'pointer', color: '#6b7280', padding: '0', lineHeight: 1, minWidth: '40px', textAlign: 'center' }} title="Close">×</button>
+            </div>
+            
+            {/* Content */}
+            <div style={{ padding: '24px' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <strong style={{ color: '#1f2937' }}>Location:</strong> <span style={{ color: '#4b5563' }}>{selectedJob.location || selectedJob.city || 'Remote'}</span> • <strong style={{ color: '#1f2937' }}>Type:</strong> <span style={{ color: '#4b5563' }}>{selectedJob.employmentType || 'Full-time'}</span>
+              </div>
+
+              {/* Deadline Warning */}
+              {selectedJob.deadline && isDeadlinePassed(selectedJob.deadline) && (
+                <div style={{ background: '#fee2e2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '20px' }}>⏰</span>
+                  <div>
+                    <strong style={{ color: '#b91c1c', display: 'block', marginBottom: '4px' }}>Application Deadline Passed</strong>
+                    <span style={{ color: '#dc2626', fontSize: '13px' }}>The application deadline for this job was {new Date(selectedJob.deadline).toLocaleDateString()}. You can no longer apply.</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Upcoming Deadline Warning */}
+              {selectedJob.deadline && !isDeadlinePassed(selectedJob.deadline) && (
+                <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '20px' }}>⌛</span>
+                  <div>
+                    <strong style={{ color: '#92400e', display: 'block', marginBottom: '4px' }}>Hurry! Application Deadline Soon</strong>
+                    <span style={{ color: '#d97706', fontSize: '13px' }}>Apply by {new Date(selectedJob.deadline).toLocaleDateString()} to not miss this opportunity.</span>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginBottom: '20px' }}>
+                <p style={{ color: '#4b5563', lineHeight: 1.6, margin: 0 }}>{selectedJob.description}</p>
+              </div>
+              {selectedJob.skillsRequired && selectedJob.skillsRequired.length > 0 && (
+                <div style={{ marginBottom: '24px' }}>
+                  <h4 style={{ marginBottom: '12px', color: '#1f2937', fontSize: '14px', fontWeight: '600' }}>Skills Required</h4>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {selectedJob.skillsRequired.map((s,i) => <span key={i} style={{ background: '#eff6ff', color: '#0369a1', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '500' }}>{s}</span>)}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer with buttons */}
+            <div style={{ display: 'flex', gap: 12, padding: '20px 24px', borderTop: '1px solid #e5e7eb', background: '#f9fafb' }}>
+              <button 
+                onClick={() => { setSelectedJob(null); handleApply(selectedJob._id, selectedJob.employer?._id); }} 
+                disabled={selectedJob.deadline && isDeadlinePassed(selectedJob.deadline)}
+                style={{ 
+                  flex: 1, 
+                  padding: '12px 24px', 
+                  background: selectedJob.deadline && isDeadlinePassed(selectedJob.deadline) ? '#d1d5db' : '#3b82f6', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '8px', 
+                  fontWeight: '600', 
+                  cursor: selectedJob.deadline && isDeadlinePassed(selectedJob.deadline) ? 'not-allowed' : 'pointer', 
+                  fontSize: '14px', 
+                  transition: 'background 0.3s',
+                  opacity: selectedJob.deadline && isDeadlinePassed(selectedJob.deadline) ? 0.6 : 1
+                }} 
+                onMouseEnter={(e) => {
+                  if (!(selectedJob.deadline && isDeadlinePassed(selectedJob.deadline))) {
+                    e.target.style.background = '#2563eb';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!(selectedJob.deadline && isDeadlinePassed(selectedJob.deadline))) {
+                    e.target.style.background = '#3b82f6';
+                  }
+                }}
+              >
+                {selectedJob.deadline && isDeadlinePassed(selectedJob.deadline) ? '✗ Deadline Passed' : '✓ Apply Now'}
+              </button>
+              <button onClick={async () => { try { await API.post('/user/jobs/save', { jobId: selectedJob._id }); setSelectedJob(null); showToast('Job saved', 'success'); } catch(e){ showToast('Failed to save', 'error'); } }} style={{ flex: 1, padding: '12px 24px', background: '#f8fafc', color: '#374151', border: '1.5px solid #d1d5db', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', transition: 'all 0.3s' }} onMouseEnter={(e) => { e.target.style.background = '#f3f4f6'; e.target.style.borderColor = '#9ca3af'; }} onMouseLeave={(e) => { e.target.style.background = '#f8fafc'; e.target.style.borderColor = '#d1d5db'; }}>💾 Save Job</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

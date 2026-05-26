@@ -70,6 +70,50 @@
   box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
 }
 
+.nav-dropdown {
+  position: relative;
+}
+
+.nav-dropdown-toggle {
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 10px);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1);
+  min-width: 220px;
+  padding: 8px 0;
+  z-index: 200;
+}
+
+.nav-dropdown:hover .dropdown-menu {
+  display: block;
+}
+
+.dropdown-item {
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 12px 20px;
+  color: #475569;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background: #f8fafc;
+  color: #1d4ed8;
+}
+
 /* =============== HERO SECTION =============== */
 .hero-section {
   display: flex;

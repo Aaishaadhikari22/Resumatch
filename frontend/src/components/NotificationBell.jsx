@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/axios";
-import { useSocket } from "../hooks/useSocket.jsx";
+import { useSocket } from "../hooks/useSocketHook";
 import "./NotificationBell.css";
 import LoadingSpinner from "./common/LoadingSpinner";
 

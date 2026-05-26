@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import API from "../api/axios";
+import { useSocket } from "../hooks/useSocket.jsx";
 import "./admin.css";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import Alert from "../components/common/Alert";
@@ -12,15 +13,15 @@ export default function Users() {
   const [message, setMessage] = useState({ text: "", type: "" });
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const socket = useSocket();
+  
+  const ITEMS_PER_PAGE = 10;
   
   // Custom Confirmation Modal state
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, action: null, title: "", text: "", type: "danger" });
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await API.get("/admin/users");
@@ -31,7 +32,20 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  // Listen for real-time updates from socket
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("dashboard:refresh", loadUsers);
+    return () => {
+      socket.off("dashboard:refresh", loadUsers);
+    };
+  }, [socket, loadUsers]);
 
   const attemptStatusUpdate = (u, newStatus) => {
     const isBlocking = newStatus === "blocked";
@@ -101,6 +115,11 @@ export default function Users() {
     u.email?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const paginatedUsers = filteredUsers.slice(startIdx, endIdx);
+
   return (
     <div className="admin-page" style={{ padding: "20px" }}>
       <h2>Users Management</h2>
@@ -129,9 +148,10 @@ export default function Users() {
         <div style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
           <input
             type="text"
+            autoComplete="off"
             placeholder="🔍 Search User by name or email..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             style={{ padding: "10px", borderRadius: "5px", border: "1px solid #ccc", width: "100%", maxWidth: "400px" }}
           />
         </div>
@@ -140,30 +160,31 @@ export default function Users() {
             <div style={{ padding: "40px", display: "flex", justifyContent: "center" }}>
                 <LoadingSpinner />
             </div>
-        ) : (
+          ) : (
+            <>
             <table className="admin-table">
-            <thead>
+              <thead>
                 <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Actions</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-            </thead>
-            <tbody>
-                {filteredUsers.length > 0 ? (
-                filteredUsers.map((u) => (
+              </thead>
+              <tbody>
+                {paginatedUsers.length > 0 ? (
+                  paginatedUsers.map((u) => (
                     <tr key={u._id} onClick={() => setSelectedUser(u)} style={{ cursor: 'pointer' }}>
-                    <td>{u.name}</td>
-                    <td>{u.email}</td>
-                    <td>{u.role}</td>
-                    <td>
+                      <td>{u.name}</td>
+                      <td>{u.email}</td>
+                      <td>{u.role}</td>
+                      <td>
                         <span className={`status-badge ${u.status === "blocked" || u.status === "suspended" || u.status === "banned" ? "rejected" : "active"}`}>
-                        {u.status || "active"}
+                          {u.status || "active"}
                         </span>
-                    </td>
-                    <td onClick={(e) => e.stopPropagation()}>
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <button 
                             style={{ background: "#f0f0f0", color: "#333", border: "none", padding: "6px 12px", borderRadius: "4px", marginRight: "5px", cursor: "pointer", fontWeight: "bold" }}
                             onClick={(e) => { e.stopPropagation(); setSelectedUser(u); }}
@@ -199,17 +220,54 @@ export default function Users() {
                         >
                          {processingId === u._id ? "..." : "Delete"}
                         </button>
-                    </td>
+                      </td>
                     </tr>
-                ))
+                  ))
                 ) : (
-                <tr>
+                  <tr>
                     <td colSpan="5" className="no-data" style={{textAlign:"center", padding:"20px"}}>No users found</td>
-                </tr>
+                  </tr>
                 )}
-            </tbody>
+              </tbody>
             </table>
-        )}
+
+            {totalPages > 1 && (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginTop: "20px", padding: "15px", background: "#f9f9f9", borderRadius: "5px" }}>
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  style={{ padding: "8px 12px", background: currentPage === 1 ? "#ccc" : "#007bff", color: "#fff", border: "none", borderRadius: "4px", cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
+                >
+                  ← Previous
+                </button>
+                
+                <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button 
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      style={{ padding: "8px 10px", background: currentPage === page ? "#007bff" : "#f0f0f0", color: currentPage === page ? "#fff" : "#333", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: currentPage === page ? "bold" : "normal" }}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  style={{ padding: "8px 12px", background: currentPage === totalPages ? "#ccc" : "#007bff", color: "#fff", border: "none", borderRadius: "4px", cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}
+                >
+                  Next →
+                </button>
+
+                <span style={{ marginLeft: "20px", color: "#666", fontWeight: "bold" }}>
+                  Page {currentPage} of {totalPages} • Showing {Math.min(startIdx + 1, filteredUsers.length)}-{Math.min(endIdx, filteredUsers.length)} of {filteredUsers.length}
+                </span>
+              </div>
+            )}
+            </>
+          )}
       </div>
 
       {/* USER VIEW MODAL */}

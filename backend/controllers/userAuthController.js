@@ -97,7 +97,13 @@ export const loginUser = async (req, res) => {
 
 
     // Prevent Admins/Moderators saved in User collection from falling into a dashboard redirect loop
-    if (user.role !== "user" && user.role !== "job_seeker") {
+    let normalizedRole = String(user.role || "").trim().toLowerCase();
+    normalizedRole = normalizedRole.replace(/[-\s]/g, "_");
+    if (!normalizedRole) {
+      normalizedRole = "user";
+    }
+    const allowedUserRoles = ["user", "job_seeker", "jobseeker", "candidate", "member", "applicant"];
+    if (!allowedUserRoles.includes(normalizedRole)) {
        return res.status(403).json({ msg: "This account has an Admin/Employer role. Please use the Employer Login." });
     }
 

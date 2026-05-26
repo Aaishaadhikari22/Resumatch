@@ -5,7 +5,7 @@ export default function UserProtectedRoute({ children }) {
   const userToken = getRoleToken("user");
 
   if (!userToken) {
-    return <Navigate to="/user/login" />;
+    return <Navigate to="/jobseeker/login" />;
   }
 
   return children;

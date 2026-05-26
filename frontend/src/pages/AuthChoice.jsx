@@ -13,14 +13,12 @@ export default function AuthChoice() {
         </div>
         <div className="nav-actions">
           <button className="nav-login" onClick={() => navigate("/")}>Home</button>
-          <button className="nav-login" onClick={() => navigate("/auth")}>Auth Center</button>
           <button className="nav-signup" onClick={() => navigate("/auth")}>Login / Sign Up</button>
         </div>
       </nav>
 
       <section className="auth-choice-hero">
         <div className="hero-content">
-          <div className="badge">🔐 Authentication Center</div>
           <h1 className="hero-title">Login or Sign Up for ResuMatch</h1>
           <p className="hero-subtitle">
             Choose the action that fits you best, then pick the portal that matches your role.

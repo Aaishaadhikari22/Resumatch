@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../api/axios";
 import { useToast } from "../../hooks/useToast";
@@ -41,22 +41,10 @@ export default function UserProfileNew() {
   const [fetching, setFetching] = useState(true);
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [profilePhoto, setProfilePhoto] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
   const { showToast, toast, closeToast } = useToast();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    calculateProfileCompletion(profileData, {
-      title: resumeData.title,
-      skills,
-      workExperiences,
-      educationHistory,
-    });
-  }, [profileData, resumeData.title, skills, workExperiences, educationHistory]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setFetching(true);
     try {
       const [profileRes, resumeRes] = await Promise.all([
@@ -100,7 +88,19 @@ export default function UserProfileNew() {
     } finally {
       setFetching(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+  useEffect(() => {
+    calculateProfileCompletion(profileData, {
+      title: resumeData.title,
+      skills,
+      workExperiences,
+      educationHistory,
+    });
+  }, [profileData, resumeData.title, skills, workExperiences, educationHistory]);
 
   const calculateProfileCompletion = (profile, resume) => {
     let completed = 0;
@@ -257,6 +257,48 @@ export default function UserProfileNew() {
                   <img src={profilePhoto} alt={profileData.name} />
                 ) : (
                   <span>{initials}</span>
+                )}
+              </div>
+
+              <div className="avatar-actions">
+                <input
+                  id="profile-photo-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                  style={{ display: 'none' }}
+                />
+                <label htmlFor="profile-photo-input" className="upload-label">Change Photo</label>
+                {photoFile && (
+                  <button className="btn-upload" onClick={async () => {
+                    setLoading(true);
+                    try {
+                      const form = new FormData();
+                      form.append('photo', photoFile);
+                      const res = await API.post('/user/profile/photo', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+                      setProfilePhoto(res.data.profilePhoto);
+                      showToast('Profile photo uploaded', 'success');
+                      setPhotoFile(null);
+                      fetchData();
+                    } catch (err) {
+                      showToast(err.response?.data?.msg || 'Failed to upload photo', 'error');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}>{loading ? 'Uploading...' : 'Upload'}</button>
+                )}
+                {profilePhoto && (
+                  <button className="btn-remove" onClick={async () => {
+                    setLoading(true);
+                    try {
+                      await API.delete('/user/profile/photo');
+                      setProfilePhoto(null);
+                      showToast('Profile photo removed', 'success');
+                      fetchData();
+                    } catch (err) {
+                      showToast(err.response?.data?.msg || 'Failed to remove photo', 'error');
+                    } finally { setLoading(false); }
+                  }}>Remove</button>
                 )}
               </div>
             </div>

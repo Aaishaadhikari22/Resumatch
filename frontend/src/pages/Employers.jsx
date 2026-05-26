@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import API from "../api/axios";
+import { useSocket } from "../hooks/useSocket.jsx";
 import "./admin.css";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import Alert from "../components/common/Alert";
@@ -12,10 +13,23 @@ export default function Employers() {
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState({ text: "", type: "" });
   const [selectedEmployer, setSelectedEmployer] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const socket = useSocket();
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [creatingEmployer, setCreatingEmployer] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    companyName: "",
+    email: "",
+    password: "",
+    phone: ""
+  });
+
+  const ITEMS_PER_PAGE = 10;
 
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, action: null, title: "", text: "", type: "danger" });
 
-  const fetchEmployers = async () => {
+  const fetchEmployers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await API.get("/admin/employers");
@@ -26,7 +40,20 @@ export default function Employers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchEmployers();
+  }, [fetchEmployers]);
+
+  // Listen for real-time updates from socket
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("dashboard:refresh", fetchEmployers);
+    return () => {
+      socket.off("dashboard:refresh", fetchEmployers);
+    };
+  }, [socket, fetchEmployers]);
 
   const attemptDelete = (emp) => {
     setConfirmDialog({
@@ -55,14 +82,50 @@ export default function Employers() {
     }
   };
 
-  useEffect(() => {
-    fetchEmployers();
-  }, []);
+  const handleCreateEmployer = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.name || !formData.companyName || !formData.email || !formData.password || !formData.phone) {
+      setMessage({ text: "All fields are required", type: "error" });
+      return;
+    }
+
+    setCreatingEmployer(true);
+    try {
+      const res = await API.post("/admin/create-employer", formData);
+      setMessage({ text: res.data.message || "Employer created successfully", type: "success" });
+      
+      // Reset form
+      setFormData({
+        name: "",
+        companyName: "",
+        email: "",
+        password: "",
+        phone: ""
+      });
+      
+      setShowCreateForm(false);
+      fetchEmployers();
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setMessage({ text: "", type: "" }), 3000);
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || "Error creating employer";
+      setMessage({ text: errorMsg, type: "error" });
+    } finally {
+      setCreatingEmployer(false);
+    }
+  };
 
   const filteredEmployers = employers.filter((emp) =>
     emp.companyName?.toLowerCase().includes(search.toLowerCase()) || 
     emp.email?.toLowerCase().includes(search.toLowerCase())
   );
+
+  const totalPages = Math.ceil(filteredEmployers.length / ITEMS_PER_PAGE);
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const paginatedEmployers = filteredEmployers.slice(startIdx, endIdx);
 
   const approvedCount = employers.filter(e => e.status === "approved").length;
   const pendingCount = employers.filter(e => e.status === "pending").length;
@@ -112,13 +175,207 @@ export default function Employers() {
       <div className="admin-card">
         <h3>Employer Database</h3>
         
-        {/* VIVA REQUIREMENT: SEARCH */}
+        {/* ADD EMPLOYER BUTTON */}
+        <div style={{ marginBottom: "20px" }}>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            style={{
+              background: "#007bff",
+              color: "#fff",
+              border: "none",
+              padding: "10px 20px",
+              borderRadius: "5px",
+              cursor: "pointer",
+              fontWeight: "bold",
+              fontSize: "14px"
+            }}
+          >
+            ➕ Add Employer
+          </button>
+        </div>
+
+        {/* CREATE EMPLOYER FORM MODAL */}
+        {showCreateForm && (
+          <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1001
+          }}>
+            <div style={{
+              background: "#fff",
+              padding: "30px",
+              borderRadius: "10px",
+              maxWidth: "500px",
+              width: "90%",
+              maxHeight: "90vh",
+              overflowY: "auto"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                <h2>Add New Employer</h2>
+                <button 
+                  onClick={() => setShowCreateForm(false)} 
+                  style={{ background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer" }}
+                  disabled={creatingEmployer}
+                >
+                  &times;
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateEmployer} autoComplete="off">
+                <div style={{ marginBottom: "15px" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Contact Person Name *</label>
+                  <input
+                    type="text"
+                    placeholder="Enter contact person name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "5px",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit"
+                    }}
+                    disabled={creatingEmployer}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "15px" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Company Name *</label>
+                  <input
+                    type="text"
+                    placeholder="Enter company name"
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "5px",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit"
+                    }}
+                    disabled={creatingEmployer}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "15px" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Email *</label>
+                  <input
+                    type="email"
+                    placeholder="Enter email address"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    autoComplete="off"
+                    data-lpignore="true"
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "5px",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit"
+                    }}
+                    disabled={creatingEmployer}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "15px" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Password *</label>
+                  <input
+                    type="password"
+                    placeholder="Enter password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    autoComplete="new-password"
+                    data-lpignore="true"
+                    data-form-type="other"
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "5px",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit"
+                    }}
+                    disabled={creatingEmployer}
+                  />
+                </div>
+
+                <div style={{ marginBottom: "20px" }}>
+                  <label style={{ display: "block", marginBottom: "5px", fontWeight: "bold" }}>Phone *</label>
+                  <input
+                    type="tel"
+                    placeholder="Enter phone number"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      border: "1px solid #ccc",
+                      borderRadius: "5px",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit"
+                    }}
+                    disabled={creatingEmployer}
+                  />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateForm(false)}
+                    style={{
+                      padding: "10px 20px",
+                      background: "#f0f0f0",
+                      color: "#333",
+                      border: "1px solid #ccc",
+                      borderRadius: "5px",
+                      cursor: "pointer",
+                      fontWeight: "bold"
+                    }}
+                    disabled={creatingEmployer}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: "10px 20px",
+                      background: "#007bff",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "5px",
+                      cursor: creatingEmployer ? "not-allowed" : "pointer",
+                      fontWeight: "bold",
+                      opacity: creatingEmployer ? 0.6 : 1
+                    }}
+                    disabled={creatingEmployer}
+                  >
+                    {creatingEmployer ? "Creating..." : "Create Employer"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        
+        {/* SEARCH */}
         <div style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
           <input
             type="text"
+            autoComplete="off"
             placeholder="🔍 Search Employer by company name or email..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             style={{ padding: "10px", borderRadius: "5px", border: "1px solid #ccc", width: "100%", maxWidth: "400px" }}
           />
         </div>
@@ -128,6 +385,7 @@ export default function Employers() {
                 <LoadingSpinner />
             </div>
         ) : (
+            <>
             <table className="admin-table">
             <thead>
                 <tr>
@@ -138,12 +396,12 @@ export default function Employers() {
                 </tr>
             </thead>
             <tbody>
-                {filteredEmployers.length === 0 ? (
+                {paginatedEmployers.length === 0 ? (
                 <tr>
                     <td colSpan="4" className="no-data" style={{ textAlign: "center", padding: "20px" }}>No employers found</td>
                 </tr>
                 ) : (
-                filteredEmployers.map((emp) => (
+                paginatedEmployers.map((emp) => (
                     <tr key={emp._id}>
                     <td><strong>{emp.companyName}</strong></td>
                     <td>{emp.email}</td>
@@ -180,6 +438,44 @@ export default function Employers() {
                 )}
             </tbody>
             </table>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginTop: "20px", padding: "15px", background: "#f9f9f9", borderRadius: "5px" }}>
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  style={{ padding: "8px 12px", background: currentPage === 1 ? "#ccc" : "#007bff", color: "#fff", border: "none", borderRadius: "4px", cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
+                >
+                  ← Previous
+                </button>
+                
+                <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button 
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      style={{ padding: "8px 10px", background: currentPage === page ? "#007bff" : "#f0f0f0", color: currentPage === page ? "#fff" : "#333", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: currentPage === page ? "bold" : "normal" }}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                
+                <button 
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  style={{ padding: "8px 12px", background: currentPage === totalPages ? "#ccc" : "#007bff", color: "#fff", border: "none", borderRadius: "4px", cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}
+                >
+                  Next →
+                </button>
+
+                <span style={{ marginLeft: "20px", color: "#666", fontWeight: "bold" }}>
+                  Page {currentPage} of {totalPages} • Showing {Math.min(startIdx + 1, filteredEmployers.length)}-{Math.min(endIdx, filteredEmployers.length)} of {filteredEmployers.length}
+                </span>
+              </div>
+            )}
+            </>
         )}
       </div>
 

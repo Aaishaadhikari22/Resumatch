@@ -328,6 +328,40 @@
     box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
 }
 
+.grid-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    padding: 24px 0;
+}
+
+.user-card,
+.employer-card,
+.job-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.user-card .actions,
+.employer-card .actions,
+.job-card .actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+
+.user-card .meta,
+.employer-card .meta,
+.job-card .meta {
+    color: #475569;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .stats-grid {

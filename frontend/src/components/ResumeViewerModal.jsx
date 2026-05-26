@@ -2,7 +2,7 @@ import React from "react";
 import { FaTimes, FaDownload, FaPhone, FaEnvelope, FaCalendar, FaBriefcase } from "react-icons/fa";
 import "./ResumeViewerModal.css";
 
-const ResumeViewerModal = ({ resume, user, onClose }) => {
+const ResumeViewerModal = ({ resume, user, onClose, matchedSkills = [], unmatchedSkills = [] }) => {
   if (!resume || !user) return null;
 
   const handleDownload = () => {
@@ -81,6 +81,36 @@ const ResumeViewerModal = ({ resume, user, onClose }) => {
                     {skill}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Matched / Missing Skills (if provided) */}
+          {(matchedSkills.length > 0 || unmatchedSkills.length > 0) && (
+            <div className="resume-section skills-section">
+              <h3>🔎 Match Details</h3>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                {matchedSkills.length > 0 && (
+                  <div style={{ minWidth: 200 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#166534', marginBottom: 8 }}>Matched Skills</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {matchedSkills.map((s, i) => (
+                        <span key={`m-${i}`} style={{ background: '#ecfccb', padding: '6px 10px', borderRadius: 8, fontWeight: 700 }}>{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {unmatchedSkills.length > 0 && (
+                  <div style={{ minWidth: 200 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#9f1239', marginBottom: 8 }}>Missing Required Skills</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {unmatchedSkills.map((s, i) => (
+                        <span key={`u-${i}`} style={{ background: '#fff7f6', padding: '6px 10px', borderRadius: 8, fontWeight: 700 }}>{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

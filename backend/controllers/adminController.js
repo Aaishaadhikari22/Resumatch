@@ -6,9 +6,10 @@ import Job from "../models/Job.js";
 import Admin from "../models/Admin.js";
 import Employer from "../models/Employer.js";
 import Resume from "../models/Resume.js";
+import Application from "../models/Application.js";
 import SystemLog from "../models/SystemLog.js";
 import MatchingSettings from "../models/MatchingSettings.js";
-import { getPermissions } from "../utils/permissionHelper.js";
+import { getPermissions, hasPermission, isValidRole, getRolesByType, getRoleDescription } from "../utils/permissionHelper.js";
 import bcrypt from "bcryptjs";
 import fs from "fs";
 import path from "path";
@@ -482,37 +483,257 @@ export const resetSystemSettings = async (req, res) => {
 
 export const getAdvancedStats = async (req, res) => {
   try {
-    // Industry Breakdown (Mocking based on common industries since we don't have a rigid industry field yet)
-    const industryData = [
-      { name: "IT & Software", value: 45 },
-      { name: "Finance", value: 20 },
-      { name: "Healthcare", value: 15 },
-      { name: "Education", value: 10 },
-      { name: "Marketing", value: 10 }
-    ];
+    const Category = (await import("../models/Category.js")).default;
+    const Job = (await import("../models/Job.js")).default;
 
-    // Match Score Distribution
+    // Industry Breakdown - Dynamic from Categories
+    const categories = await Category.find({ status: "active" });
+    const industryData = await Promise.all(
+      categories.map(async (cat) => {
+        const jobCount = await Job.countDocuments({ 
+          sector: cat.name,
+          isActive: true 
+        });
+        return { name: cat.name, value: jobCount };
+      })
+    );
+
+    // Sort by value descending and limit to top 10
+    const sortedIndustryData = industryData
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+
+    // Match Score Distribution (compute from applications)
+    const allApplications = await Application.find();
+    
     const matchDistribution = [
-      { name: "80-100%", value: 150 },
-      { name: "60-80%", value: 280 },
-      { name: "40-60%", value: 420 },
-      { name: "20-40%", value: 190 },
-      { name: "0-20%", value: 85 }
+      { name: "80-100%", value: allApplications.filter(a => a.similarityScore >= 80).length },
+      { name: "60-80%", value: allApplications.filter(a => a.similarityScore >= 60 && a.similarityScore < 80).length },
+      { name: "40-60%", value: allApplications.filter(a => a.similarityScore >= 40 && a.similarityScore < 60).length },
+      { name: "20-40%", value: allApplications.filter(a => a.similarityScore >= 20 && a.similarityScore < 40).length },
+      { name: "0-20%", value: allApplications.filter(a => a.similarityScore < 20).length }
     ];
 
-    // Activity Trends
-    const activityTrends = [
-      { name: "Mon", signups: 12, jobs: 4 },
-      { name: "Tue", signups: 18, jobs: 7 },
-      { name: "Wed", signups: 15, jobs: 5 },
-      { name: "Thu", signups: 22, jobs: 9 },
-      { name: "Fri", signups: 10, jobs: 3 },
-      { name: "Sat", signups: 5, jobs: 1 },
-      { name: "Sun", signups: 3, jobs: 0 }
-    ];
+    // Activity Trends - Last 7 days
+    const activityTrends = [];
+    
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const now = new Date();
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dayStart = new Date(date.setHours(0, 0, 0, 0));
+      const dayEnd = new Date(date.setHours(23, 59, 59, 999));
+      
+      const signups = await User.countDocuments({
+        createdAt: { $gte: dayStart, $lte: dayEnd }
+      });
+      
+      const jobs = await Job.countDocuments({
+        createdAt: { $gte: dayStart, $lte: dayEnd },
+        isActive: true
+      });
+      
+      activityTrends.push({
+        name: days[date.getDay()],
+        signups,
+        jobs
+      });
+    }
 
-    res.json({ industryData, matchDistribution, activityTrends });
+    res.json({ industryData: sortedIndustryData, matchDistribution, activityTrends });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+// ================= ROLE MANAGEMENT =================
+
+/**
+ * Get all available roles and their permissions
+ */
+export const getAllRolesWithPermissions = async (req, res) => {
+  try {
+    const adminRoles = getRolesByType('admin');
+    const employerRoles = getRolesByType('employer');
+    const userRoles = getRolesByType('user');
+
+    const roles = {};
+    
+    // Add admin roles
+    adminRoles.forEach(role => {
+      roles[role] = {
+        type: 'admin',
+        description: getRoleDescription(role),
+        permissions: getPermissions(role)
+      };
+    });
+
+    // Add employer roles
+    employerRoles.forEach(role => {
+      roles[role] = {
+        type: 'employer',
+        description: getRoleDescription(role),
+        permissions: getPermissions(role)
+      };
+    });
+
+    // Add user roles
+    userRoles.forEach(role => {
+      roles[role] = {
+        type: 'user',
+        description: getRoleDescription(role),
+        permissions: getPermissions(role)
+      };
+    });
+
+    res.json(roles);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Get specific role details
+ */
+export const getRoleDetails = async (req, res) => {
+  try {
+    const { role } = req.params;
+    
+    if (!isValidRole(role)) {
+      return res.status(404).json({ message: "Role not found" });
+    }
+
+    const roleType = getRolesByType('admin').includes(role) ? 'admin' 
+                  : getRolesByType('employer').includes(role) ? 'employer' 
+                  : getRolesByType('user').includes(role) ? 'user' 
+                  : null;
+
+    res.json({
+      role,
+      type: roleType,
+      description: getRoleDescription(role),
+      permissions: getPermissions(role)
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Assign role to admin
+ */
+export const assignAdminRole = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const { role } = req.body;
+
+    if (!role || !getRolesByType('admin').includes(role)) {
+      return res.status(400).json({ message: "Invalid admin role" });
+    }
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const permissions = getPermissions(role);
+    admin.role = role;
+    admin.permissions = permissions;
+    await admin.save();
+
+    await logAction("Assign Admin Role", `Assigned role ${role} to admin ${admin.email}`, req, "admin", adminId);
+
+    res.json({ 
+      message: `Admin role updated to ${role}`,
+      admin: {
+        id: admin._id,
+        email: admin.email,
+        role: admin.role,
+        permissions: admin.permissions
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Update admin permissions
+ */
+export const updateAdminPermissions = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const { permissions } = req.body;
+
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({ message: "Permissions must be an array" });
+    }
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    admin.permissions = permissions;
+    await admin.save();
+
+    await logAction("Update Admin Permissions", `Updated permissions for admin ${admin.email}`, req, "admin", adminId);
+
+    res.json({
+      message: "Admin permissions updated",
+      admin: {
+        id: admin._id,
+        email: admin.email,
+        role: admin.role,
+        permissions: admin.permissions
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Get all admins with their roles and permissions
+ */
+export const getAllAdminsWithRoles = async (req, res) => {
+  try {
+    const admins = await Admin.find().select("-password").lean();
+    
+    const adminsWithRoles = admins.map(admin => ({
+      ...admin,
+      roleDescription: getRoleDescription(admin.role),
+      permissionsCount: admin.permissions?.length || 0
+    }));
+
+    res.json(adminsWithRoles);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Verify user has permission
+ */
+export const verifyPermission = async (req, res) => {
+  try {
+    const { role, permission } = req.body;
+
+    if (!isValidRole(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    const hasPermissionFlag = hasPermission(role, permission);
+
+    res.json({
+      role,
+      permission,
+      hasPermission: hasPermissionFlag
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

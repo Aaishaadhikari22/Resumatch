@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import API from "../../api/axios";
 import "./EmployerProfileCompletion.css";
 
-export default function EmployerProfileCompletion({ employerId, onComplete, showWarnings = true }) {
+export default function EmployerProfileCompletion({ onComplete, showWarnings = true }) {
   const [profile, setProfile] = useState(null);
   const [validation, setValidation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -10,23 +10,7 @@ export default function EmployerProfileCompletion({ employerId, onComplete, show
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentType, setDocumentType] = useState("registrationCertificate");
 
-  const fetchProfileData = async () => {
-    try {
-      const res = await API.get("/employer/profile");
-      setProfile(res.data);
-      validateProfile(res.data);
-    } catch (err) {
-      console.error("Failed to fetch profile:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProfileData();
-  }, [employerId]);
-
-  const validateProfile = (employerData) => {
+  const validateProfile = useCallback((employerData) => {
     const requiredFields = {
       companyName: { completed: !!employerData.companyName, label: "Company Name" },
       companyDescription: { completed: !!employerData.companyDescription && employerData.companyDescription.length > 50, label: "Company Description" },
@@ -57,7 +41,24 @@ export default function EmployerProfileCompletion({ employerId, onComplete, show
     if (onComplete && incomplete.length === 0) {
       onComplete(true);
     }
-  };
+  }, [onComplete]);
+
+  const fetchProfileData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await API.get("/employer/profile");
+      setProfile(res.data);
+      validateProfile(res.data);
+    } catch (err) {
+      console.error("Failed to fetch profile:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [validateProfile]);
+
+  useEffect(() => {
+    fetchProfileData();
+  }, [fetchProfileData]);
 
   const handleFileUpload = async () => {
     if (!selectedFile) {

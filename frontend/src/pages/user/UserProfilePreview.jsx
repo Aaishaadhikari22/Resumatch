@@ -40,7 +40,7 @@ export default function UserProfilePreview() {
     };
 
     loadPreview();
-  }, []);
+  }, [showToast]);
 
   if (fetching) return <LoadingSpinner />;
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import API from "../../api/axios";
 import { useToast } from "../../hooks/useToast";
 import Toast from "../../components/common/Toast";
@@ -12,21 +12,25 @@ export default function SavedJobs() {
   const [loading, setLoading] = useState(true);
   const [applyingJobId, setApplyingJobId] = useState(null);
   const [sortBy, setSortBy] = useState("match"); // match, date
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [jobLoading, setJobLoading] = useState(false);
   const { showToast, toast, closeToast } = useToast();
   const navigate = useNavigate();
 
-  const fetchSavedJobs = useCallback(async () => {
+  // Fetch saved jobs function (defined outside useEffect so it can be called elsewhere)
+  const fetchSavedJobs = async () => {
     setLoading(true);
     try {
       const res = await API.get("/user/jobs/saved");
+      console.log('Saved Jobs API response:', res.data);
       setJobs(res.data || []);
     } catch (err) {
       console.error(err);
-      showToast("Failed to load saved jobs", "error");
+      try { showToast("Failed to load saved jobs", "error"); } catch (e) {}
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  };
 
   useEffect(() => {
     fetchSavedJobs();
@@ -165,7 +169,7 @@ export default function SavedJobs() {
                   🚀 {applyingJobId === job._id ? "Applying..." : "Apply Now"}
                 </button>
 
-                <button onClick={() => navigate("/user/recommendations")} style={{ width: "100%", padding: "10px", background: "#f8fafc", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "8px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s", fontSize: "14px" }} onMouseOver={(e) => e.target.style.background = "#f1f5f9"} onMouseOut={(e) => e.target.style.background = "#f8fafc"}>
+                <button onClick={async () => { setJobLoading(true); try { const res = await API.get(`/user/jobs/${job._id}`); setSelectedJob(res.data.job || null); } catch(e){console.error(e);} finally { setJobLoading(false);} }} style={{ width: "100%", padding: "10px", background: "#f8fafc", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "8px", fontWeight: "600", cursor: "pointer", transition: "all 0.2s", fontSize: "14px" }} onMouseOver={(e) => e.target.style.background = "#f1f5f9"} onMouseOut={(e) => e.target.style.background = "#f8fafc"}>
                   👁️ View Job
                 </button>
 
@@ -195,6 +199,44 @@ export default function SavedJobs() {
 
             </div>
           ))}
+        </div>
+      )}
+      {selectedJob && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+          <div style={{ background: '#fff', width: '95%', maxWidth: 800, borderRadius: 16, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '24px', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ flex: 1 }}>
+                <h2 style={{ margin: '0 0 8px 0', fontSize: '24px', fontWeight: '700', color: '#1f2937' }}>{selectedJob.title}</h2>
+                <div style={{ color: '#6b7280', fontSize: '14px' }}>{selectedJob.employer?.companyName || 'Unknown Company'}</div>
+              </div>
+              <button onClick={() => setSelectedJob(null)} style={{ background: 'transparent', border: 'none', fontSize: '32px', cursor: 'pointer', color: '#6b7280', padding: '0', lineHeight: 1, minWidth: '40px', textAlign: 'center' }} title="Close">×</button>
+            </div>
+            
+            {/* Content */}
+            <div style={{ padding: '24px' }}>
+              <div style={{ marginBottom: '16px' }}>
+                <strong style={{ color: '#1f2937' }}>Location:</strong> <span style={{ color: '#4b5563' }}>{selectedJob.location || selectedJob.city || 'Remote'}</span> • <strong style={{ color: '#1f2937' }}>Type:</strong> <span style={{ color: '#4b5563' }}>{selectedJob.employmentType || 'Full-time'}</span>
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <p style={{ color: '#4b5563', lineHeight: 1.6, margin: 0 }}>{selectedJob.description}</p>
+              </div>
+              {selectedJob.skillsRequired && selectedJob.skillsRequired.length > 0 && (
+                <div style={{ marginBottom: '24px' }}>
+                  <h4 style={{ marginBottom: '12px', color: '#1f2937', fontSize: '14px', fontWeight: '600' }}>Skills Required</h4>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {selectedJob.skillsRequired.map((s,i) => <span key={i} style={{ background: '#eff6ff', color: '#0369a1', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '500' }}>{s}</span>)}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Footer with buttons */}
+            <div style={{ display: 'flex', gap: 12, padding: '20px 24px', borderTop: '1px solid #e5e7eb', background: '#f9fafb' }}>
+              <button onClick={() => { setSelectedJob(null); handleApply(selectedJob._id, selectedJob.employer?._id); }} style={{ flex: 1, padding: '12px 24px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', transition: 'background 0.3s' }} onMouseEnter={(e) => e.target.style.background = '#2563eb'} onMouseLeave={(e) => e.target.style.background = '#3b82f6'}>✓ Apply Now</button>
+              <button onClick={async () => { try { await API.post('/user/jobs/save', { jobId: selectedJob._id }); setSelectedJob(null); showToast('Job saved', 'success'); } catch(e){ showToast('Failed to save', 'error'); } }} style={{ flex: 1, padding: '12px 24px', background: '#f8fafc', color: '#374151', border: '1.5px solid #d1d5db', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '14px', transition: 'all 0.3s' }} onMouseEnter={(e) => { e.target.style.background = '#f3f4f6'; e.target.style.borderColor = '#9ca3af'; }} onMouseLeave={(e) => { e.target.style.background = '#f8fafc'; e.target.style.borderColor = '#d1d5db'; }}>💾 Save Job</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

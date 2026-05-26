@@ -11,48 +11,59 @@ import { calculateSimilarityScore, findMatchingResumes } from "../utils/skillMat
 import { validateEmployerProfile, canEmployerAccept } from "../utils/profileValidator.js";
 
 /* ==================================
-   DASHBOARD STATS
+   DASHBOARD STATS - OPTIMIZED
 ================================== */
 export const getDashboardStats = async (req, res) => {
   try {
     const employerId = req.user._id;
 
-    const employer = await Employer.findById(employerId).select("-password");
-    const totalJobs = await Job.countDocuments({ employer: employerId });
-    const totalApplicants = await Application.countDocuments({ employer: employerId });
-
-    // Get per-status counts
-    const acceptedCount = await Application.countDocuments({ employer: employerId, status: "accepted" });
-    const reviewedCount = await Application.countDocuments({ employer: employerId, status: "reviewed" });
-    const activeJobs = await Job.countDocuments({ employer: employerId, jobStatus: "approved" });
-
-    // Recent applications
-    const recentAppsData = await Application.find({ employer: employerId })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .populate("user", "name email")
-      .populate("job", "title skillsRequired");
-
-    const recentApplications = await Promise.all(
-      recentAppsData.map(async (app) => {
-        const resume = await Resume.findOne({ user: app.user._id });
-        let similarityScore = 0;
-        if (resume && app.job) {
-          similarityScore = calculateSimilarityScore(app.job, resume).score;
-        }
-        return {
-          ...app._doc,
-          similarityScore,
-          resumeTitle: resume ? resume.title : "No resume"
-        };
-      })
-    );
-
-    // Applicant Status Distribution for Chart
-    const statusCounts = await Application.aggregate([
-      { $match: { employer: employerId } },
-      { $group: { _id: "$status", count: { $sum: 1 } } }
+    // Fetch data in parallel
+    const [employer, totalJobs, totalApplicants, acceptedCount, reviewedCount, activeJobs, recentAppsData, statusCounts] = await Promise.all([
+      Employer.findById(employerId).select("-password").lean(),
+      Job.countDocuments({ employer: employerId }),
+      Application.countDocuments({ employer: employerId }),
+      Application.countDocuments({ employer: employerId, status: "accepted" }),
+      Application.countDocuments({ employer: employerId, status: "reviewed" }),
+      Job.countDocuments({ employer: employerId, jobStatus: "approved" }),
+      Application.find({ employer: employerId })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate("user", "name email")
+        .populate("job", "title skillsRequired")
+        .lean(),
+      Application.aggregate([
+        { $match: { employer: employerId } },
+        { $group: { _id: "$status", count: { $sum: 1 } } }
+      ])
     ]);
+
+    // Batch fetch resumes for recent applications instead of individual queries
+    const userIds = recentAppsData.map(app => app.user._id);
+    const resumes = await Resume.find({ user: { $in: userIds } }).lean();
+    const resumeMap = new Map(resumes.map(r => [r.user.toString(), r]));
+
+    const recentApplications = recentAppsData.map(app => {
+      const resume = resumeMap.get(app.user._id.toString());
+      let similarityScore = 0;
+      let matchedSkills = [];
+      let unmatchedSkills = [];
+      
+      if (resume && app.job) {
+        const result = calculateSimilarityScore(app.job, resume);
+        similarityScore = result.score;
+        matchedSkills = result.matchedSkills || [];
+        unmatchedSkills = result.unmatchedSkills || [];
+      }
+      
+      return {
+        ...app,
+        similarityScore,
+        matchedSkills,
+        unmatchedSkills,
+        resumeTitle: resume ? resume.title : "No resume"
+      };
+    });
+
     const chartData = statusCounts.map(s => ({ name: s._id, value: s.count }));
 
     res.json({
@@ -66,6 +77,7 @@ export const getDashboardStats = async (req, res) => {
     });
 
   } catch (err) {
+    console.error("Employer dashboard error:", err);
     res.status(500).json({ error: err.message });
   }
 };

@@ -13,12 +13,16 @@ export default function EmployerApplicants() {
   const [loadingApplicants, setLoadingApplicants] = useState(false);
   const [selectedResume, setSelectedResume] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedMatchDetails, setSelectedMatchDetails] = useState(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   // Sort and Filter State
   const [sortBy, setSortBy] = useState("match"); // "match" or "experience"
   const [filterSkill, setFilterSkill] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const ITEMS_PER_PAGE = 10;
 
 
   // Fetch employer's jobs on mount
@@ -57,6 +61,7 @@ export default function EmployerApplicants() {
 
     const fetchApplicants = async () => {
       setLoadingApplicants(true);
+      setCurrentPage(1);
       try {
         const res = await API.get(`/employer/jobs/${selectedJobId}/applicants`);
         setApplicantData(res.data);
@@ -97,11 +102,13 @@ export default function EmployerApplicants() {
   const handleViewResume = (applicant) => {
     setSelectedResume(applicant.resume);
     setSelectedUser(applicant.user);
+    setSelectedMatchDetails({ matchedSkills: applicant.matchedSkills || [], unmatchedSkills: applicant.unmatchedSkills || [] });
   };
 
   const closeResumeViewer = () => {
     setSelectedResume(null);
     setSelectedUser(null);
+    setSelectedMatchDetails(null);
   };
 
   const getScoreClass = (score) => {
@@ -132,6 +139,12 @@ export default function EmployerApplicants() {
   }
 
   const displayedApplicants = getDisplayedApplicants();
+
+  // Pagination Logic
+  const totalPages = Math.ceil(displayedApplicants.length / ITEMS_PER_PAGE);
+  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const paginatedApplicants = displayedApplicants.slice(startIdx, endIdx);
 
   return (
     <div className="emp-applicants-container">
@@ -210,7 +223,7 @@ export default function EmployerApplicants() {
                   type="text" 
                   placeholder="e.g. React" 
                   value={filterSkill} 
-                  onChange={(e) => setFilterSkill(e.target.value)} 
+                  onChange={(e) => { setFilterSkill(e.target.value); setCurrentPage(1); }}
                   style={{ width: "100%", padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}
                 />
               </div>
@@ -218,7 +231,7 @@ export default function EmployerApplicants() {
                 <label style={{ fontSize: "12px", fontWeight: "bold", color: "#64748b", display: "block", marginBottom: "5px" }}>Sort By</label>
                 <select 
                   value={sortBy} 
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
                   style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "white" }}
                 >
                   <option value="match">Match Score (%)</option>
@@ -238,8 +251,9 @@ export default function EmployerApplicants() {
               <p>Either there are zero applications or your filter returned no results.</p>
             </div>
           ) : (
-            <div className="emp-applicants-list">
-              {displayedApplicants.map((applicant) => (
+            <>
+              <div className="emp-applicants-list">
+                {paginatedApplicants.map((applicant) => (
                 <div key={applicant._id} className="emp-applicant-card">
                   <div className="emp-applicant-details">
                     <h4>{applicant.user?.name || "Unknown"}</h4>
@@ -352,7 +366,45 @@ export default function EmployerApplicants() {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="pagination-container">
+                  <button
+                    className="pagination-btn secondary"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                  >
+                    ← Previous
+                  </button>
+
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        className={`pagination-btn ${currentPage === page ? "primary" : "secondary"}`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    className="pagination-btn secondary"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next →
+                  </button>
+
+                  <span className="pagination-summary">
+                    Page {currentPage} of {totalPages} • Showing {Math.min(startIdx + 1, displayedApplicants.length)}-{Math.min(endIdx, displayedApplicants.length)} of {displayedApplicants.length}
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -363,6 +415,8 @@ export default function EmployerApplicants() {
           resume={selectedResume}
           user={selectedUser}
           onClose={closeResumeViewer}
+          matchedSkills={selectedMatchDetails?.matchedSkills || []}
+          unmatchedSkills={selectedMatchDetails?.unmatchedSkills || []}
         />
       )}
     </div>

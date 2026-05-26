@@ -17,30 +17,30 @@ export default function MyResume() {
   const resumeRef = useRef(null);
 
   useEffect(() => {
+    const fetchAllData = async () => {
+      setLoading(true);
+      try {
+        const [profileRes, resumeRes] = await Promise.all([
+          API.get("/user/profile"),
+          API.get("/user/resume").catch(() => null)
+        ]);
+
+        setProfileData(profileRes.data);
+        if (resumeRes?.data) {
+          setResumeData(resumeRes.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch data", err);
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          navigate("/user/login");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchAllData();
-  }, []);
-
-  const fetchAllData = async () => {
-    setLoading(true);
-    try {
-      const [profileRes, resumeRes] = await Promise.all([
-        API.get("/user/profile"),
-        API.get("/user/resume").catch(() => null)
-      ]);
-
-      setProfileData(profileRes.data);
-      if (resumeRes?.data) {
-        setResumeData(resumeRes.data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch data", err);
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        navigate("/user/login");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [navigate]);
 
   const handleDownloadPDF = async () => {
     if (!resumeRef.current) {

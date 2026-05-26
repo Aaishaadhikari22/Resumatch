@@ -13,16 +13,24 @@ const checkPermission = (requiredPermissions) => {
   return async (req, res, next) => {
     try {
       // Get admin from the request (set by auth middleware)
-      const adminId = req.admin?.id || req.user?.id;
+      let admin = req.user || req.admin;
       
-      if (!adminId) {
-        return res.status(401).json({ msg: "Unauthorized - No admin ID found" });
+      if (!admin) {
+        return res.status(401).json({ msg: "Unauthorized - No admin found" });
       }
 
-      const admin = await Admin.findById(adminId);
+      // If admin is not already loaded from DB (just from token), fetch full admin document
+      if (!admin.permissions && admin._id) {
+        admin = await Admin.findById(admin._id);
+      }
 
       if (!admin) {
         return res.status(403).json({ msg: "Admin not found" });
+      }
+
+      // Check if it's actually an admin (not a regular user or employer)
+      if (admin.role && !['super_admin', 'sector_admin', 'employer_manager', 'moderator', 'support'].includes(admin.role)) {
+        return res.status(403).json({ msg: "User is not an admin" });
       }
 
       if (admin.status !== "active") {

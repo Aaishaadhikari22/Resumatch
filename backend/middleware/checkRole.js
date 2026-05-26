@@ -49,3 +49,4 @@ const checkRole = (requiredRoles) => {
 };
 
 export default checkRole;
+export { checkRole };
