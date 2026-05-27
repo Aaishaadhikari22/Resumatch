@@ -59,3 +59,81 @@
 .logout-btn:hover {
   background: #fecaca;
 }
+
+/* Header / Avatar */
+.sidebar .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding: 0 6px;
+}
+
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar .avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.sidebar .brand .title {
+  font-size: 18px;
+  font-weight: 600;
+  color: inherit;
+}
+
+/* Menu */
+.sidebar .menu {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.menu-link {
+  text-decoration: none;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  font-weight: 500;
+  font-size: 15px;
+  transition: all 0.15s ease;
+}
+
+.menu-link:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.menu-link.active {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.theme-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #334155;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.theme-btn:hover { opacity: 0.95; }

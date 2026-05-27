@@ -297,6 +297,11 @@ router.post("/job/:id/approve", auth(), checkPermission(["manage_jobs", "approve
 router.post("/job/:id/reject", auth(), checkPermission(["manage_jobs", "approve_jobs"]), rejectJob);
 router.delete("/job/:id", auth(), checkPermission(["manage_jobs", "approve_jobs"]), deleteJob);
 
+// Aliases for plural admin job routes used by legacy/other UI pages
+router.post("/jobs/approve/:id", auth(), checkPermission(["manage_jobs", "approve_jobs"]), approveJob);
+router.post("/jobs/reject/:id", auth(), checkPermission(["manage_jobs", "approve_jobs"]), rejectJob);
+router.delete("/jobs/:id", auth(), checkPermission(["manage_jobs", "approve_jobs"]), deleteJob);
+
 router.get("/jobs/pending", auth(), checkPermission(["manage_jobs", "approve_jobs"]), async (req, res) => {
   const jobs = await Job.find({ jobStatus: "pending" });
   res.json(jobs);

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResuMatch Presentation</title>
+  <style>
+    body, html { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0b1220; color: #f5f7ff; }
+    .deck { width: 100vw; height: 100vh; overflow: hidden; position: relative; }
+    .slide { width: 100%; height: 100%; position: absolute; top: 0; left: 100%; padding: 48px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 20px; transition: transform 0.5s ease, opacity 0.5s ease; opacity: 0; transform: translateX(40px); }
+    .slide.active { left: 0; opacity: 1; transform: translateX(0); }
+    .slide.prev { left: 0; opacity: 0.3; transform: translateX(-40px); }
+    .slide h1, .slide h2, .slide h3 { margin: 0; }
+    .slide h1 { font-size: clamp(2.8rem, 4vw, 5rem); letter-spacing: 0.06em; }
+    .slide h2 { font-size: clamp(1.8rem, 2.4vw, 3rem); color: #a5b4fc; }
+    .slide p { max-width: 900px; line-height: 1.6; font-size: 1.05rem; color: #d8d9e4; }
+    .slide ul { max-width: 900px; padding-left: 1.4rem; gap: 10px; display: flex; flex-direction: column; }
+    .slide li { margin-bottom: 0.5rem; }
+    .image-row { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 20px; }
+    .image-row img { border-radius: 20px; width: clamp(280px, 45%, 440px); max-height: 380px; object-fit: cover; box-shadow: 0 18px 50px rgba(0,0,0,0.35); border: 2px solid rgba(255,255,255,0.08); }
+    .footer { position: absolute; bottom: 24px; left: 24px; font-size: 0.95rem; color: rgba(255,255,255,0.7); }
+    .controls { position: absolute; bottom: 24px; right: 24px; display: flex; gap: 12px; align-items: center; color: rgba(255,255,255,0.8); }
+    .controls span { background: rgba(15, 23, 42, 0.8); border-radius: 999px; padding: 10px 14px; font-size: 0.95rem; }
+
+  </style>
+</head>
+<body>
+  <div class="deck">
+    <section class="slide active">
+      <h1>ResuMatch</h1>
+      <h2>AI-Powered Job Matching for Students and Employers</h2>
+      <p>ResuMatch connects job seekers to the best-fit jobs using advanced resume and job description matching with similarity scoring.</p>
+      <div class="image-row">
+        <img src="frontend/public/signup.png" alt="Signup Screen" />
+        <img src="frontend/public/login.png" alt="Login Screen" />
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>Problem Statement</h2>
+      <ul>
+        <li>Job seekers struggle to find opportunities that match their skills and resume details.</li>
+        <li>Employers receive many applications but need the best candidates quickly.</li>
+        <li>Traditional job search platforms do not provide accurate skill-to-job alignment.</li>
+      </ul>
+      <p>ResuMatch solves this with an intelligent matching engine that focuses on relevance, not just keywords.</p>
+    </section>
+
+    <section class="slide">
+      <h2>ResuMatch Solution</h2>
+      <ul>
+        <li>AI-backed resume analysis and employer requirement matching.</li>
+        <li>Similarity scoring using TF-IDF and cosine similarity.</li>
+        <li>Fast candidate ranking and job recommendation.</li>
+      </ul>
+      <p>The system evaluates job descriptions and resumes to compute a compatibility percentage for every candidate-job pair.</p>
+    </section>
+
+    <section class="slide">
+      <h2>Core Features</h2>
+      <ul>
+        <li>Resume upload and parsing</li>
+        <li>Employer job posting and image support</li>
+        <li>Role-based access for students, employers, and admins</li>
+        <li>Real-time matching and job recommendations</li>
+      </ul>
+      <div class="image-row">
+        <img src="backend/uploads/job-images/job-69bfec29a2ed83a6a8a23687-1775743106311-196729956.jpeg" alt="Job Listing Preview" />
+        <img src="backend/uploads/job-images/job-69bfec29a2ed83a6a8a23687-1775032577079-313825554.jpeg" alt="Job Dashboard" />
+      </div>
+    </section>
+
+    <section class="slide">
+      <h2>How It Works</h2>
+      <ol>
+        <li>Users upload resumes and enter skills, education, experience.</li>
+        <li>Employers create job posts with required skills and descriptions.</li>
+        <li>The engine computes similarity scores between resumes and job descriptions.</li>
+        <li>Candidates are ranked and matched to jobs with relevance-based scores.</li>
+      </ol>
+      <p>Matching is based on meaningful skill and keyword importance, not simple text matching.</p>
+    </section>
+
+    <section class="slide">
+      <h2>Technology Stack</h2>
+      <ul>
+        <li>Backend: Node.js, Express, MongoDB</li>
+        <li>Frontend: Vite, React</li>
+        <li>Matching logic: TF-IDF and cosine similarity</li>
+        <li>Security: role-based auth, admin and employer controls</li>
+      </ul>
+      <p>Modular architecture supports scalable data flow and user-friendly interfaces.</p>
+    </section>
+
+    <section class="slide">
+      <h2>Why ResuMatch Stands Out</h2>
+      <ul>
+        <li>Improves hiring accuracy for employers</li>
+        <li>Helps students present the right job matches</li>
+        <li>Reduces manual application review time</li>
+        <li>Supports smarter, faster placement decisions</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <h2>Future Enhancements</h2>
+      <ul>
+        <li>Automated resume suggestions and formatting tips</li>
+        <li>AI interview preparation and score explanations</li>
+        <li>More advanced analytics for employers and students</li>
+        <li>Multi-language and multi-country resume matching</li>
+      </ul>
+    </section>
+
+    <section class="slide">
+      <h2>Thank You!</h2>
+      <p>ResuMatch is designed to make candidate-job matching smarter, faster, and more reliable.</p>
+      <p>Questions?</p>
+    </section>
+
+    <div class="footer">Use arrow keys to navigate slides.</div>
+    <div class="controls"><span>← Previous</span><span>Next →</span></div>
+  </div>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    let currentIndex = 0;
+
+    function showSlide(index) {
+      slides.forEach((slide, i) => {
+        slide.classList.remove('active', 'prev');
+        if (i === index) slide.classList.add('active');
+        if (i === index - 1) slide.classList.add('prev');
+      });
+    }
+
+    window.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight' || event.key === 'PageDown') {
+        currentIndex = Math.min(currentIndex + 1, slides.length - 1);
+        showSlide(currentIndex);
+      }
+      if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+        currentIndex = Math.max(currentIndex - 1, 0);
+        showSlide(currentIndex);
+      }
+    });
+  </script>
+</body>
+</html>

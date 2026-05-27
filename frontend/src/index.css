@@ -13,36 +13,40 @@ width:100%;
 
 /* THEME VARIABLES */
 
-:root{
-
---bg-main:#f3f4f6;
---bg-sidebar:#ffffff;
---bg-card:#ffffff;
---bg-card-light:#f8fafc;
-
---text-main:#0f172a;
---text-muted:#64748b;
-
---primary:#3b82f6;
---success:#22c55e;
---warning:#f59e0b;
---danger:#ef4444;
-
-
-
-/* BODY */
+:root {
+  --bg-body: #f3f4f6;
+  --bg-main: #f4f6f9;
+  --bg-sidebar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-light: #f8fafc;
+  --bg-muted: #e2e8f0;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-inverse: #f8fafc;
+  --border: #cbd5e1;
+  --primary: #3b82f6;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
 }
 
-body{
-background:#f3f4f6;
-color:#0f172a;
-font-family:"Inter",sans-serif;
+body {
+  background: var(--bg-body);
+  color: var(--text-main);
+  font-family: "Inter", sans-serif;
+}
+
+.app-shell {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
 }
 
 .app-main-content {
   flex: 1;
-  background-color: #f4f6f9;
-  color: #0f172a;
+  background-color: var(--bg-main);
+  color: var(--text-main);
   padding: 0;
   overflow-y: auto;
   min-height: 100vh;
@@ -154,6 +158,42 @@ body.dark-mode button {
   color: #f8fafc !important;
 }
 
+body.dark-mode .job-info-card,
+body.dark-mode .job-breakdown-card {
+  background: #1f293b !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .job-skill-pill {
+  background: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+body.dark-mode .job-description-text,
+body.dark-mode .job-info-row,
+body.dark-mode .job-info-card div,
+body.dark-mode .job-info-card span {
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode .job-primary-btn,
+body.dark-mode .job-back-btn {
+  background: #2563eb !important;
+  color: #f8fafc !important;
+}
+
+body.dark-mode .job-secondary-btn {
+  background: #1f2937 !important;
+  color: #cbd5e1 !important;
+  border-color: #475569 !important;
+}
+
+body.dark-mode .job-debug-box {
+  background: #111827 !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
 body.dark-mode .save-btn,
 body.dark-mode .change-pwd-btn {
   background: #111827 !important;
@@ -205,3 +245,45 @@ body.dark-mode .sidebar .logout-btn {
   background: #7f1d1d !important;
   color: #fee2e2 !important;
 }
+
+/* Themed form controls used across the app */
+.themed-input,
+.themed-select {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+  background-color: #f8fafc;
+  color: #0f172a;
+  width: 100%;
+}
+
+.themed-textarea {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #f8fafc;
+  color: #0f172a;
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+}
+
+body.dark-mode .themed-input,
+body.dark-mode .themed-select,
+body.dark-mode .themed-textarea {
+  background-color: #334155 !important;
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+}
+
+/* Logo preview box used in settings */
+.logo-preview {
+  margin-top: 12px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+}
+body.dark-mode .logo-preview { background: #0b1220; border-color: #334155; }

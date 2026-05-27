@@ -52,19 +52,9 @@ function GrowthTooltip({ active, payload, label, activeSeries }) {
     if (!displayData) return null;
     
     return (
-      <div style={{
-        background: "white",
-        padding: "10px 14px",
-        border: `3px solid ${displayData.stroke || displayData.color}`,
-        borderRadius: "6px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-      }}>
-        <p style={{ margin: "0 0 6px 0", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
-          {label}
-        </p>
-        <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: displayData.stroke || displayData.color }}>
-          {displayData.name}: {displayData.value}
-        </p>
+      <div className="growth-tooltip" data-color={displayData.stroke || displayData.color}>
+        <p className="growth-tooltip-label">{label}</p>
+        <p className="growth-tooltip-value">{displayData.name}: {displayData.value}</p>
       </div>
     );
   }
@@ -172,53 +162,53 @@ export default function Dashboard() {
         <>
           {/* KPI CARDS */}
           <div className="stats-grid">
-            <div className="stat-box clickable" onClick={() => navigate("/users")} style={{ position: "relative", paddingBottom: "40px" }}>
+            <div className="stat-box clickable" onClick={() => navigate("/users")}>
               <div className="stat-header">
                 <FaUsers className="stat-icon blue" />
                 <h4>Total Users</h4>
               </div>
               <p>{stats.totalUsers}</p>
               <GrowthIndicator value={growth.users} />
-              <div style={{ position: "absolute", bottom: "10px", right: "20px", color: "#2563eb", fontSize: "13px", fontWeight: "bold" }}>View Details &rarr;</div>
+              <div className="stat-footer-link">View Details →</div>
             </div>
 
-            <div className="stat-box clickable" onClick={() => navigate("/employers")} style={{ position: "relative", paddingBottom: "40px" }}>
+            <div className="stat-box clickable" onClick={() => navigate("/employers")}>
               <div className="stat-header">
                 <FaBuilding className="stat-icon green" />
                 <h4>Total Employers</h4>
               </div>
               <p>{stats.totalEmployers}</p>
               <GrowthIndicator value={growth.employers} />
-              <div style={{ position: "absolute", bottom: "10px", right: "20px", color: "#16a34a", fontSize: "13px", fontWeight: "bold" }}>View Details &rarr;</div>
+              <div className="stat-footer-link">View Details →</div>
             </div>
 
-            <div className="stat-box clickable" onClick={() => navigate("/jobs")} style={{ position: "relative", paddingBottom: "40px" }}>
+            <div className="stat-box clickable" onClick={() => navigate("/jobs")}>
               <div className="stat-header">
                 <FaBriefcase className="stat-icon purple" />
                 <h4>Total Jobs</h4>
               </div>
               <p>{stats.totalJobs}</p>
               <GrowthIndicator value={growth.jobs} />
-              <div style={{ position: "absolute", bottom: "10px", right: "20px", color: "#7c3aed", fontSize: "13px", fontWeight: "bold" }}>View Details &rarr;</div>
+              <div className="stat-footer-link">View Details →</div>
             </div>
 
-            <div className="stat-box clickable" onClick={() => navigate("/jobs?status=pending")} style={{ position: "relative", paddingBottom: "40px" }}>
+            <div className="stat-box clickable" onClick={() => navigate("/jobs?status=pending")}>
               <div className="stat-header">
                 <FaClock className="stat-icon orange" />
                 <h4>Pending Jobs</h4>
               </div>
               <p>{stats.pendingJobs}</p>
-              <div style={{ position: "absolute", bottom: "10px", right: "20px", color: "#ea580c", fontSize: "13px", fontWeight: "bold" }}>Review Now &rarr;</div>
+              <div className="stat-footer-link">Review Now →</div>
             </div>
 
-            <div className="stat-box clickable" onClick={() => navigate("/resumes")} style={{ position: "relative", paddingBottom: "40px" }}>
+            <div className="stat-box clickable" onClick={() => navigate("/resumes")}>
               <div className="stat-header">
                 <FaFileAlt className="stat-icon red" />
                 <h4>Total Resumes</h4>
               </div>
               <p>{stats.totalResumes}</p>
               <GrowthIndicator value={growth.resumes} />
-              <div style={{ position: "absolute", bottom: "10px", right: "20px", color: "#dc2626", fontSize: "13px", fontWeight: "bold" }}>View Details &rarr;</div>
+              <div className="stat-footer-link">View Details →</div>
             </div>
           </div>
 
@@ -241,45 +231,17 @@ export default function Dashboard() {
           <div className="dashboard-main-flex">
             <div className="chart-card flex-2">
               <h3 className="chart-title">Platform Growth Overview</h3>
-              <div style={{ display: "flex", gap: "20px", marginBottom: "20px", flexWrap: "wrap" }}>
-                <div
-                  onClick={() => handleLegendClick("users")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    cursor: "pointer",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    backgroundColor: visibleLines.users ? "#dbeafe" : "#f1f5f9",
-                    border: visibleLines.users ? "2px solid #2563eb" : "1px solid #cbd5e1",
-                    opacity: visibleLines.users ? 1 : 0.6,
-                    transition: "all 0.2s"
-                  }}
-                >
-                  <span style={{ display: "inline-block", width: "12px", height: "12px", backgroundColor: "#2563eb", borderRadius: "2px" }}></span>
-                  <span style={{ fontWeight: 500, color: "#1e293b" }}>Users</span>
+              <div className="legend-row">
+                <div className={`legend-item users ${visibleLines.users ? 'active' : ''}`} onClick={() => handleLegendClick("users")}>
+                  <span className="legend-color users" />
+                  <span className="legend-label">Users</span>
                 </div>
-                <div
-                  onClick={() => handleLegendClick("jobs")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    cursor: "pointer",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    backgroundColor: visibleLines.jobs ? "#f3e8ff" : "#f1f5f9",
-                    border: visibleLines.jobs ? "2px solid #7c3aed" : "1px solid #cbd5e1",
-                    opacity: visibleLines.jobs ? 1 : 0.6,
-                    transition: "all 0.2s"
-                  }}
-                >
-                  <span style={{ display: "inline-block", width: "12px", height: "12px", backgroundColor: "#7c3aed", borderRadius: "2px" }}></span>
-                  <span style={{ fontWeight: 500, color: "#1e293b" }}>Jobs</span>
+                <div className={`legend-item jobs ${visibleLines.jobs ? 'active' : ''}`} onClick={() => handleLegendClick("jobs")}>
+                  <span className="legend-color jobs" />
+                  <span className="legend-label">Jobs</span>
                 </div>
               </div>
-              <p style={{ fontSize: "12px", color: "#64748b", marginBottom: "10px" }}>💡 Click legend items to show/hide specific data lines</p>
+              <p className="legend-note">💡 Click legend items to show/hide specific data lines</p>
               <ResponsiveContainer width="100%" height={350}>
                 <AreaChart data={chartData}>
                   <defs>
@@ -348,15 +310,15 @@ export default function Dashboard() {
                     </thead>
                     <tbody>
                       {logs.length === 0 ? (
-                        <tr><td colSpan="2" style={{ textAlign: "center", padding: "20px", color: "#94a3b8" }}>No recent activity</td></tr>
+                        <tr><td colSpan="2" className="no-activity">No recent activity</td></tr>
                       ) : (
                         logs.map((log) => (
                           <tr key={log._id}>
                             <td>
-                              <div style={{ fontWeight: 600, color: "#1e293b", fontSize: "13px" }}>{log.action}</div>
-                              <div style={{ fontSize: "12px", color: "#64748b" }}>{log.details}</div>
+                              <div className="log-action">{log.action}</div>
+                              <div className="log-details">{log.details}</div>
                             </td>
-                            <td style={{ fontSize: "12px", whiteSpace: "nowrap" }}>
+                            <td className="log-time">
                               {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </td>
                           </tr>

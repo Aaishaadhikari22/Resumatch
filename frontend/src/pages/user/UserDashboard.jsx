@@ -21,19 +21,9 @@ function MatchInsightsTooltip({ active, payload, label, activeSeries }) {
   if (active && payload && payload.length > 0) {
     const data = payload[0];
     return (
-      <div style={{
-        background: "white",
-        padding: "10px 14px",
-        border: `3px solid #3b82f6`,
-        borderRadius: "6px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-      }}>
-        <p style={{ margin: "0 0 6px 0", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
-          {label}
-        </p>
-        <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: "#3b82f6" }}>
-          {data.name}: {data.value}
-        </p>
+      <div className="dashboard-tooltip" style={{ borderColor: '#3b82f6' }}>
+        <p className="dashboard-tooltip-title">{label}</p>
+        <p className="dashboard-tooltip-value" style={{ color: '#3b82f6' }}>{data.name}: {data.value}</p>
       </div>
     );
   }
@@ -109,7 +99,7 @@ export default function UserDashboard() {
 
   if (!stats) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", color: "#64748b" }}>
+      <div className="dashboard-loading">
         <h3>Loading your personalized dashboard...</h3>
       </div>
     );
@@ -133,11 +123,11 @@ export default function UserDashboard() {
             <p>{stats.user?.email} • {stats.resumeExists ? "Resume Professional" : "New Candidate"}</p>
           </div>
           <div className="banner-stats">
-            <Link to="/user/applications" className="b-stat" style={{ textDecoration: 'none', cursor: 'pointer' }}>
+            <Link to="/user/applications" className="b-stat">
               <span>{stats.applicationsCount}</span>
               <p>Applications</p>
             </Link>
-            <Link to="/user/recommendations" className="b-stat" style={{ textDecoration: 'none', cursor: 'pointer' }}>
+            <Link to="/user/recommendations" className="b-stat">
               <span>{stats.matchedJobsCount}</span>
               <p>AI Matches</p>
             </Link>
@@ -154,7 +144,7 @@ export default function UserDashboard() {
           <div className="charts-row">
             <div className="chart-card">
               <h3 className="section-title">Application Status</h3>
-              <div style={{ height: "250px", width: "100%" }}>
+              <div className="chart-inner-wrapper">
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie
@@ -179,22 +169,9 @@ export default function UserDashboard() {
                       <div
                         key={i}
                         onClick={() => handlePieLegendClick(i)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          cursor: "pointer",
-                          padding: "6px 10px",
-                          borderRadius: "5px",
-                          backgroundColor: visiblePieSlices[i] !== false ? `${COLORS[i % COLORS.length]}15` : "#f1f5f9",
-                          border: visiblePieSlices[i] !== false ? `1px solid ${COLORS[i % COLORS.length]}` : "1px solid #cbd5e1",
-                          opacity: visiblePieSlices[i] !== false ? 1 : 0.5,
-                          transition: "all 0.2s",
-                          fontSize: "13px"
-                        }}
-                        className="legend-item"
+                        className={`legend-item ${visiblePieSlices[i] !== false ? 'active' : 'inactive'}`}
                       >
-                          <span style={{ backgroundColor: COLORS[i % COLORS.length], display: "inline-block", width: "8px", height: "8px", borderRadius: "2px" }}></span>
+                          <span className="legend-dot" style={{ backgroundColor: COLORS[i % COLORS.length] }}></span>
                           {s.name}
                       </div>
                   ))}
@@ -203,69 +180,30 @@ export default function UserDashboard() {
 
             <div className="chart-card">
               <h3 className="section-title">Match Insights</h3>
-              <div style={{ display: "flex", gap: "12px", marginBottom: "15px", flexWrap: "wrap" }}>
+              <div className="bar-legend-row">
                 <div
                   onClick={() => handleBarLegendClick("matched")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    cursor: "pointer",
-                    padding: "6px 10px",
-                    borderRadius: "5px",
-                    backgroundColor: visibleBars.matched ? "#dbeafe" : "#f1f5f9",
-                    border: visibleBars.matched ? "2px solid #3b82f6" : "1px solid #cbd5e1",
-                    opacity: visibleBars.matched ? 1 : 0.5,
-                    transition: "all 0.2s",
-                    fontSize: "13px",
-                    fontWeight: 500
-                  }}
+                  className={`bar-legend-pill ${visibleBars.matched ? 'active' : 'inactive'}`}
                 >
-                  <span style={{ display: "inline-block", width: "8px", height: "8px", backgroundColor: "#3b82f6", borderRadius: "2px" }}></span>
+                  <span className="legend-dot" style={{ backgroundColor: "#3b82f6" }}></span>
                   Matched
                 </div>
                 <div
                   onClick={() => handleBarLegendClick("saved")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    cursor: "pointer",
-                    padding: "6px 10px",
-                    borderRadius: "5px",
-                    backgroundColor: visibleBars.saved ? "#dbeafe" : "#f1f5f9",
-                    border: visibleBars.saved ? "2px solid #3b82f6" : "1px solid #cbd5e1",
-                    opacity: visibleBars.saved ? 1 : 0.5,
-                    transition: "all 0.2s",
-                    fontSize: "13px",
-                    fontWeight: 500
-                  }}
+                  className={`bar-legend-pill ${visibleBars.saved ? 'active' : 'inactive'}`}
                 >
-                  <span style={{ display: "inline-block", width: "8px", height: "8px", backgroundColor: "#3b82f6", borderRadius: "2px" }}></span>
+                  <span className="legend-dot" style={{ backgroundColor: "#3b82f6" }}></span>
                   Saved
                 </div>
                 <div
                   onClick={() => handleBarLegendClick("applied")}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    cursor: "pointer",
-                    padding: "6px 10px",
-                    borderRadius: "5px",
-                    backgroundColor: visibleBars.applied ? "#dbeafe" : "#f1f5f9",
-                    border: visibleBars.applied ? "2px solid #3b82f6" : "1px solid #cbd5e1",
-                    opacity: visibleBars.applied ? 1 : 0.5,
-                    transition: "all 0.2s",
-                    fontSize: "13px",
-                    fontWeight: 500
-                  }}
+                  className={`bar-legend-pill ${visibleBars.applied ? 'active' : 'inactive'}`}
                 >
-                  <span style={{ display: "inline-block", width: "8px", height: "8px", backgroundColor: "#3b82f6", borderRadius: "2px" }}></span>
+                  <span className="legend-dot" style={{ backgroundColor: "#3b82f6" }}></span>
                   Applied
                 </div>
               </div>
-              <div style={{ height: "250px", width: "100%" }}>
+              <div className="chart-inner-wrapper">
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={[
                       visibleBars.matched && { name: "Matched", value: stats.matchedJobsCount },
@@ -290,7 +228,7 @@ export default function UserDashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <p style={{fontSize: "12px", color: "#64748b", textAlign: "center", marginTop: "10px"}}>Click legend items to show/hide. Your engagement across the platform</p>
+              <p className="dashboard-info-text">Click legend items to show/hide. Your engagement across the platform</p>
             </div>
           </div>
 
@@ -328,7 +266,7 @@ export default function UserDashboard() {
             </div>
             <div className="mini-activity-list">
                 {!stats.resumeExists ? (
-                    <Link to="/user/resume" className="mini-activity-item warning" style={{ textDecoration: 'none', display: 'flex', cursor: 'pointer' }}>
+                    <Link to="/user/resume" className="mini-activity-item warning">
                         <div className="a-dot">!</div>
                         <div className="a-text">
                             <strong>Complete Profile</strong>
@@ -336,7 +274,7 @@ export default function UserDashboard() {
                         </div>
                     </Link>
                 ) : (
-                    <Link to="/user/resume" className="mini-activity-item success" style={{ textDecoration: 'none', display: 'flex', cursor: 'pointer' }}>
+                    <Link to="/user/resume" className="mini-activity-item success">
                         <div className="a-dot">✓</div>
                         <div className="a-text">
                             <strong>Resume Active</strong>
@@ -344,7 +282,7 @@ export default function UserDashboard() {
                         </div>
                     </Link>
                 )}
-                <Link to="/user/recommendations" className="mini-activity-item info" style={{ textDecoration: 'none', display: 'flex', cursor: 'pointer' }}>
+                <Link to="/user/recommendations" className="mini-activity-item info">
                     <div className="a-dot">✨</div>
                     <div className="a-text">
                         <strong>New Matches</strong>
@@ -354,7 +292,7 @@ export default function UserDashboard() {
             </div>
           </div>
 
-          <div className="dashboard-section-white" style={{ marginTop: "24px" }}>
+          <div className="dashboard-section-white section-spaced">
             <h3 className="section-title">💡 Career Tips</h3>
             <div className="tips-list">
                 <p>• Keep your skills updated to get better matches.</p>

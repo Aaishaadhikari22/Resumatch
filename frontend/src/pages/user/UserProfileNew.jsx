@@ -124,6 +124,20 @@ export default function UserProfileNew() {
     setProfileCompletion(Math.min(percentage, 100));
   };
 
+  const normalizeSkill = (value) => value.trim();
+
+  const addSkillFromInput = () => {
+    const value = normalizeSkill(skillInput);
+    if (!value) return false;
+    if (skills.some((skill) => skill.toLowerCase() === value.toLowerCase())) {
+      setSkillInput("");
+      return false;
+    }
+    setSkills((prevSkills) => [...prevSkills, value]);
+    setSkillInput("");
+    return true;
+  };
+
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
@@ -738,22 +752,23 @@ export default function UserProfileNew() {
               <div className="card-content">
                 {editMode === "skills" ? (
                   <div className="edit-form">
-                    <input
-                      type="text"
-                      value={skillInput}
-                      onChange={(e) => setSkillInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if ((e.key === "Enter" || e.key === ",") && skillInput.trim()) {
-                          e.preventDefault();
-                          const newSkill = skillInput.trim();
-                          if (!skills.includes(newSkill)) {
-                            setSkills([...skills, newSkill]);
-                            setSkillInput("");
+                    <div className="skill-input-row">
+                      <input
+                        type="text"
+                        value={skillInput}
+                        onChange={(e) => setSkillInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if ((e.key === "Enter" || e.key === ",") && skillInput.trim()) {
+                            e.preventDefault();
+                            addSkillFromInput();
                           }
-                        }
-                      }}
-                      placeholder="Type a skill and press Enter"
-                    />
+                        }}
+                        placeholder="Type a skill and press Enter"
+                      />
+                      <button type="button" className="btn-add-small" onClick={addSkillFromInput}>
+                        Add
+                      </button>
+                    </div>
                     <div className="skills-list">
                       {skills.map((skill, idx) => (
                         <div key={idx} className="skill-tag">

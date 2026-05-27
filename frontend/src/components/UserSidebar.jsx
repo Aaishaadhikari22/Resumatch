@@ -18,100 +18,43 @@ const UserSidebar = () => {
     } else {
       document.body.classList.remove("dark-mode");
       localStorage.setItem("darkMode", "false");
-    }
-  }, [isDarkMode]);
-
-  const menuItems = [
-    { name: "Dashboard", path: "/jobseeker/dashboard", icon: "🏠" },
-    { name: "My Profile", path: "/jobseeker/profile", icon: "👤" },
-    { name: "My Resume", path: "/jobseeker/resume", icon: "📋" },
-    { name: "Matches & Jobs", path: "/jobseeker/recommendations", icon: "🎯" },
-    { name: "My Applications", path: "/jobseeker/applications", icon: "📄" },
-    { name: "Saved Jobs", path: "/jobseeker/saved-jobs", icon: "💼" },
-    { name: "Settings", path: "/jobseeker/settings", icon: "⚙️" },
-  ];
-
-  const handleLogout = () => {
-    clearAuthStorage();
-    navigate("/jobseeker/login");
-  };
-
-  return (
-    <div
-      style={{
-        width: "250px",
-        backgroundColor: "#1e293b",
-        height: "100vh",
-        padding: "20px",
-        display: "flex",
-        flexDirection: "column",
-        borderRight: "1px solid #334155",
-        boxSizing: "border-box"
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "40px", padding: "0 10px" }}>
-        <div style={{ display: "flex", alignItems: "center" }}>
-            <div style={{ width: "32px", height: "32px", borderRadius: "8px", backgroundColor: "#10b981", display: "flex", alignItems: "center", justifyContent: "center", marginRight: "12px", color: "white", fontWeight: "bold" }}>
-            U
+    return (
+      <div className="sidebar">
+        <div className="header">
+          <div className="brand">
+            <div className="avatar" style={{ backgroundColor: "#10b981" }}>U</div>
+            <div>
+              <div className="title">ResuMatch</div>
+              <div style={{ fontSize: "12px", color: "#94a3b8" }}>Job Seeker</div>
             </div>
-            <h2 style={{ color: "#ffffff", margin: 0, fontSize: "18px", fontWeight: "600" }}>ResuMatch<br/><span style={{fontSize: "12px", color: "#94a3b8"}}>Job Seeker</span></h2>
+          </div>
+          <NotificationBell />
         </div>
-        <NotificationBell />
+
+        <div className="menu">
+          {menuItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`menu-link ${location.pathname === item.path ? "active" : ""}`}
+            >
+              <span style={{ marginRight: "12px", fontSize: "16px" }}>{item.icon}</span>
+              {item.name}
+            </Link>
+          ))}
+        </div>
+
+        <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: "1px solid var(--bg-card)" }}>
+          <button onClick={() => setIsDarkMode(!isDarkMode)} className="theme-btn" title={isDarkMode ? "Switch to light theme" : "Switch to dark theme"} aria-pressed={isDarkMode}>
+            <span style={{ marginRight: "12px" }}>{isDarkMode ? "☀️" : "🌙"}</span> {isDarkMode ? "Light Mode" : "Dark Mode"}
+          </button>
+
+          <button onClick={handleLogout} className="logout-btn">
+            <span style={{ marginRight: "12px" }}>🚪</span> Logout
+          </button>
+        </div>
       </div>
-
-      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
-        {menuItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              padding: "12px 16px",
-              marginBottom: "8px",
-              borderRadius: "10px",
-              textDecoration: "none",
-              fontWeight: "500",
-              fontSize: "15px",
-              backgroundColor: location.pathname === item.path ? "#10b981" : "transparent",
-              color: location.pathname === item.path ? "#ffffff" : "#94a3b8",
-              transition: "all 0.2s ease"
-            }}
-          >
-            <span style={{ marginRight: "12px", fontSize: "16px" }}>{item.icon}</span>
-            {item.name}
-          </Link>
-        ))}
-      </div>
-
-      <div style={{ marginTop: "auto", paddingTop: "20px", borderTop: "1px solid #334155" }}>
-        <button
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          title={isDarkMode ? "Switch to light theme" : "Switch to dark theme"}
-          aria-pressed={isDarkMode}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            width: "100%",
-            padding: "12px 16px",
-            marginBottom: "10px",
-            borderRadius: "10px",
-            border: "none",
-            backgroundColor: "#334155",
-            color: "#e2e8f0",
-            cursor: "pointer",
-            fontWeight: "500",
-            fontSize: "15px",
-            transition: "all 0.2s ease"
-          }}
-        >
-          <span style={{ marginRight: "12px" }}>{isDarkMode ? "☀️" : "🌙"}</span> {isDarkMode ? "Light Mode" : "Dark Mode"}
-        </button>
-
-        <button
-          onClick={handleLogout}
-          style={{
-            display: "flex",
+    );
             alignItems: "center",
             width: "100%",
             padding: "12px 16px",

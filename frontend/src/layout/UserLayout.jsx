@@ -3,9 +3,9 @@ import { Outlet } from "react-router-dom";
 
 export default function UserLayout() {
   return (
-    <div style={{ display: "flex", height: "100vh", backgroundColor: "#f8fafc" }}>
+    <div className="app-root" style={{ display: "flex", height: "100vh" }}>
       <UserSidebar />
-      <div style={{ flex: 1, overflowY: "auto", padding: "40px 50px" }}>
+      <div className="app-main-content" style={{ padding: "40px 50px" }}>
         <Outlet />
       </div>
     </div>

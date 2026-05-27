@@ -62,6 +62,85 @@ export default function Jobs() {
   const endIdx = startIdx + ITEMS_PER_PAGE;
   const paginatedJobs = filteredJobs.slice(startIdx, endIdx);
 
+  const attemptStatusUpdate = (job, newStatus) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: newStatus === "approved" ? "Approve Job?" : "Reject Job?",
+      text: `Are you sure you want to ${newStatus} this job: "${job.title}"?`,
+      type: newStatus === "approved" ? "success" : "danger",
+      action: () => handleStatusUpdate(job._id, newStatus)
+    });
+  };
+
+  const handleStatusUpdate = async (jobId, newStatus) => {
+    setProcessingId(jobId);
+    setConfirmDialog({ ...confirmDialog, isOpen: false });
+    try {
+      const endpoint = newStatus === "approved" ? `/admin/job/${jobId}/approve` : `/admin/job/${jobId}/reject`;
+      const res = await API.post(endpoint);
+      
+      setMessage({ 
+        text: res.data.message || `Job ${newStatus} successfully!`, 
+        type: "success" 
+      });
+      
+      // Update the job in local state
+      setJobs(jobs.map(job => 
+        job._id === jobId ? { ...job, jobStatus: newStatus } : job
+      ));
+      
+      if (selectedJob?._id === jobId) {
+        setSelectedJob({ ...selectedJob, jobStatus: newStatus });
+      }
+    } catch (error) {
+      console.error(error);
+      setMessage({ 
+        text: error.response?.data?.message || `Failed to ${newStatus} job`, 
+        type: "error" 
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const attemptDelete = (job) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete Job?",
+      text: `Are you sure you want to permanently delete "${job.title}"? This cannot be undone.`,
+      type: "danger",
+      action: () => handleDelete(job._id)
+    });
+  };
+
+  const handleDelete = async (jobId) => {
+    setProcessingId(jobId);
+    setConfirmDialog({ ...confirmDialog, isOpen: false });
+    try {
+      const res = await API.delete(`/admin/job/${jobId}`);
+      
+      setMessage({ 
+        text: res.data.message || "Job deleted successfully!", 
+        type: "success" 
+      });
+      
+      // Remove job from local state
+      setJobs(jobs.filter(job => job._id !== jobId));
+      
+      if (selectedJob?._id === jobId) {
+        setSelectedJob(null);
+      }
+    } catch (error) {
+      console.error(error);
+      setMessage({ 
+        text: error.response?.data?.message || "Failed to delete job", 
+        type: "error" 
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   return (
     <div className="admin-page">
       <div className="page-header">

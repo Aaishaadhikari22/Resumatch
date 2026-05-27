@@ -4,7 +4,8 @@ import API from "../../api/axios";
 import { useToast } from "../../hooks/useToast";
 import Toast from "../../components/common/Toast";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
-import "./myResume.css";
+import ResumeDownload from "../../components/ResumeDownload";
+import "../myResume.css";
 
 export default function MyResume() {
   const navigate = useNavigate();
@@ -13,6 +14,9 @@ export default function MyResume() {
   const [loading, setLoading] = useState(true);
   const [showPreview, setShowPreview] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [resumeFile, setResumeFile] = useState(null);
   const { showToast, toast, closeToast } = useToast();
   const resumeRef = useRef(null);
 
@@ -41,6 +45,74 @@ export default function MyResume() {
 
     fetchAllData();
   }, [navigate]);
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files[0]) {
+      const file = files[0];
+      if (["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type)) {
+        setResumeFile(file);
+        showToast("✓ Resume file selected", "success");
+      } else {
+        showToast("Please upload a PDF or Word document", "error");
+      }
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type)) {
+        setResumeFile(file);
+        showToast("✓ Resume file selected", "success");
+      } else {
+        showToast("Please upload a PDF or Word document", "error");
+      }
+    }
+  };
+
+  const handleUploadResume = async () => {
+    if (!resumeFile) {
+      showToast("Please select a file first", "warning");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("resume", resumeFile);
+      
+      const res = await API.post("/user/resume/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      setResumeFile(null);
+      setResumeData({
+        ...resumeData,
+        resumeUrl: res.data.resumeUrl
+      });
+      showToast("✅ Resume uploaded successfully!", "success");
+    } catch (err) {
+      console.error("Upload error:", err);
+      showToast(err.response?.data?.msg || "Failed to upload resume", "error");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleDownloadPDF = async () => {
     if (!resumeRef.current) {
@@ -122,22 +194,42 @@ export default function MyResume() {
       <Toast message={toast?.message} type={toast?.type} onClose={closeToast} />
 
       {/* Auto-Generated Resume Info Banner */}
-      <div style={{
-        background: "#f0fdf4",
-        border: "1px solid #86efac",
-        borderRadius: "10px",
-        padding: "16px 20px",
-        marginBottom: "20px",
-        display: "flex",
-        alignItems: "center",
-        gap: "12px",
-        color: "#166534",
-        fontSize: "14px"
-      }}>
+      <div className="auto-resume-banner">
         <span style={{ fontSize: "18px" }}>✓</span>
         <div>
           <strong>Smart Auto-Generated Resume:</strong> Your resume is built automatically from your profile details (skills, experiences, education, languages). Edit your profile to instantly update your resume. No PDF upload needed - your profile data is used for AI job matching!
         </div>
+      </div>
+
+      {/* Upload Resume Section */}
+      <div className={`upload-area ${dragActive ? 'drag-active' : ''}`}>
+        <h3>📤 Or Upload Your Own Resume</h3>
+        <p>Alternatively, upload a PDF or Word document. The text will be extracted for job matching. Your auto-generated resume will be overridden.</p>
+
+        {/* Drag and Drop Area */}
+        <div className={`drop-zone ${dragActive ? 'drag-active' : ''}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}>
+          <input
+            type="file"
+            id="resume-upload"
+            onChange={handleFileChange}
+            accept=".pdf,.doc,.docx"
+            style={{ display: "none" }}
+          />
+          <label htmlFor="resume-upload" style={{ cursor: "pointer" }}>
+            <div className="drop-icon">{resumeFile ? "✅" : "📄"}</div>
+            <p className="drop-title">{resumeFile ? `📎 ${resumeFile.name}` : "Drag & drop your resume here"}</p>
+            <p className="drop-subtext">or click to browse (PDF or Word)</p>
+          </label>
+        </div>
+
+        {/* Upload Button */}
+        {resumeFile && (
+          <button onClick={handleUploadResume} disabled={uploading} className="upload-btn">{uploading ? "⏳ Uploading..." : "✅ Upload Resume"}</button>
+        )}
+
+        {resumeData?.resumeUrl && resumeData.resumeUrl !== "auto-generated" && (
+          <div className="uploaded-resume-box">✓ <strong>Uploaded Resume:</strong> {resumeData.resumeUrl}</div>
+        )}
       </div>
 
       {/* Header Section */}
@@ -161,6 +253,12 @@ export default function MyResume() {
             ✏️ Edit Profile
           </button>
         </div>
+      </div>
+
+      {/* Multi-country resume download */}
+      <div className="multi-country">
+        <h2>🌍 Download in Multi-Country Resume Format</h2>
+        <ResumeDownload profileData={profileData} resumeData={resumeData} />
       </div>
 
       {/* Warning if incomplete */}

@@ -248,7 +248,7 @@ export default function UserSettings() {
               <div className="settings-row">
                 <div className="settings-field">
                   <label>Gender</label>
-                  <select value={gender} onChange={(e) => setGender(e.target.value)} style={{ padding: "12px 14px", borderRadius: "10px", border: "1px solid #e2e8f0", fontSize: "14px", backgroundColor: "#f8fafc" }}>
+                  <select value={gender} onChange={(e) => setGender(e.target.value)} className="themed-select">
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
@@ -272,7 +272,7 @@ export default function UserSettings() {
               <div className="settings-row">
                 <div className="settings-field">
                   <label>Date of Birth</label>
-                  <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} style={{ padding: "12px 14px", borderRadius: "10px", border: "1px solid #e2e8f0", fontSize: "14px", backgroundColor: "#f8fafc" }} />
+                  <input type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} className="themed-input" />
                 </div>
                 <div className="settings-field"></div>
               </div>
@@ -284,7 +284,7 @@ export default function UserSettings() {
                     onChange={(e) => setBio(e.target.value)} 
                     placeholder="Tell employers a bit about yourself..."
                     rows="4"
-                    style={{ padding: "12px 14px", borderRadius: "10px", border: "1px solid #e2e8f0", fontSize: "14px", backgroundColor: "#f8fafc", width: "100%", resize: "vertical" }}
+                    className="themed-textarea"
                   ></textarea>
               </div>
 

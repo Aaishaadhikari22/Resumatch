@@ -80,26 +80,12 @@ function App() {
           path="/user/*"
           element={
             <UserProtectedRoute>
-              <div
-                style={{
-                  display: "flex",
-                  height: "100vh",
-                  width: "100vw",
-                  overflow: "hidden",
-                }}
-              >
+              <div className="app-shell">
                 {/* User Sidebar */}
                 <UserSidebar />
 
                 {/* User Main Content */}
-                <div
-                  className="app-main-content"
-                  style={{
-                    flex: 1,
-                    padding: "0",
-                    overflowY: "auto",
-                  }}
-                >
+                <div className="app-main-content">
                   <Routes>
                     <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<UserDashboard />} />
@@ -122,23 +108,9 @@ function App() {
           path="/jobseeker/*"
           element={
             <UserProtectedRoute>
-              <div
-                style={{
-                  display: "flex",
-                  height: "100vh",
-                  width: "100vw",
-                  overflow: "hidden",
-                }}
-              >
+              <div className="app-shell">
                 <UserSidebar />
-                <div
-                  className="app-main-content"
-                  style={{
-                    flex: 1,
-                    padding: "0",
-                    overflowY: "auto",
-                  }}
-                >
+                <div className="app-main-content">
                   <Routes>
                     <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<UserDashboard />} />
@@ -162,26 +134,12 @@ function App() {
           path="/employer/*"
           element={
             <EmployerProtectedRoute>
-              <div
-                style={{
-                  display: "flex",
-                  height: "100vh",
-                  width: "100vw",
-                  overflow: "hidden",
-                }}
-              >
+              <div className="app-shell">
                 {/* Employer Sidebar */}
                 <EmployerSidebar />
 
                 {/* Employer Main Content */}
-                <div
-                  className="app-main-content"
-                  style={{
-                    flex: 1,
-                    padding: "0",
-                    overflowY: "auto",
-                  }}
-                >
+                <div className="app-main-content">
                   <Routes>
                     <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<EmployerDashboard />} />
@@ -201,26 +159,12 @@ function App() {
           path="/admin/*"
           element={
             <ProtectedRoute>
-              <div
-                style={{
-                  display: "flex",
-                  height: "100vh",
-                  width: "100vw",
-                  overflow: "hidden",
-                }}
-              >
+              <div className="app-shell">
                 {/* Admin Sidebar */}
                 <Sidebar />
 
                 {/* Admin Main Content */}
-                <div
-                  className="app-main-content"
-                  style={{
-                    flex: 1,
-                    padding: "0",
-                    overflowY: "auto",
-                  }}
-                >
+                <div className="app-main-content">
                   <Routes>
                     <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={<Dashboard />} />

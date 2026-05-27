@@ -7,7 +7,7 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import fs from "fs";
 import { emitNotification, emitDashboardRefreshToUser, emitDashboardRefreshToEmployer, emitDashboardRefreshToAdmins } from "../utils/socketServer.js";
-import { calculateSimilarityScore, findMatchingResumes } from "../utils/skillMatching.js";
+import { calculateSimilarityScore, calculateComprehensiveMatch, findMatchingResumes } from "../utils/skillMatching.js";
 import { validateEmployerProfile, canEmployerAccept } from "../utils/profileValidator.js";
 
 /* ==================================
@@ -49,10 +49,10 @@ export const getDashboardStats = async (req, res) => {
       let unmatchedSkills = [];
       
       if (resume && app.job) {
-        const result = calculateSimilarityScore(app.job, resume);
-        similarityScore = result.score;
-        matchedSkills = result.matchedSkills || [];
-        unmatchedSkills = result.unmatchedSkills || [];
+        const result = calculateComprehensiveMatch(app.job, resume);
+        similarityScore = result.totalScore;
+        matchedSkills = result.details?.matchedSkills || [];
+        unmatchedSkills = result.details?.unmatchedSkills || [];
       }
       
       return {
@@ -123,7 +123,7 @@ export const postJob = async (req, res) => {
         uploadedAt: null
       },
       employer: req.user._id,
-      jobStatus: "approved",
+      jobStatus: "pending",
       isActive: true
     });
 
@@ -134,28 +134,25 @@ export const postJob = async (req, res) => {
 
     await job.save();
 
-    // Notify matching users and emit real-time updates
-    const allResumes = await Resume.find({}, "user skills");
-    if (skillsRequired && skillsRequired.length > 0) {
-        const matchingResumes = findMatchingResumes(job, allResumes, 50);
-        for (const { resume } of matchingResumes) {
-            const notification = await Notification.create({
-                recipient: resume.user,
-                onModel: 'User',
-                type: 'job_match',
-                title: 'New Job Match!',
-                message: `A new job "${title}" matches your skills. Check it out!`,
-                link: '/user/recommended'
-            });
-            emitNotification(resume.user, 'User', notification);
-            emitDashboardRefreshToUser(resume.user);
-        }
-    }
+    // Notify employer that job awaits admin approval
+    const employerNotification = await Notification.create({
+      recipient: req.user._id,
+      onModel: 'Employer',
+      type: 'status_update',
+      title: '⏳ Job Awaiting Approval',
+      message: `Your job "${title}" has been submitted and is awaiting admin approval. You'll be notified once it's approved.`,
+      link: '/employer/my-jobs'
+    });
+    emitNotification(req.user._id, 'Employer', employerNotification);
 
     emitDashboardRefreshToEmployer(req.user._id);
     emitDashboardRefreshToAdmins();
 
-    res.status(201).json({ msg: "Job posted successfully", job });
+    res.status(201).json({ 
+      msg: "✅ Job posted successfully! Awaiting admin approval...", 
+      job,
+      status: "pending"
+    });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -195,7 +192,7 @@ export const getMyJobs = async (req, res) => {
           for (const app of applications) {
             const resume = await Resume.findOne({ user: app.user });
             if (resume && job) {
-               totalScore += calculateSimilarityScore(job, resume).score;
+               totalScore += calculateComprehensiveMatch(job, resume).totalScore;
             }
           }
           avgMatch = Math.round(totalScore / applicantCount);
@@ -258,10 +255,10 @@ export const getApplicantsForJob = async (req, res) => {
         let unmatchedSkills = [];
 
         if (resume && job) {
-          const result = calculateSimilarityScore(job, resume);
-          similarityScore = result.score;
-          matchedSkills = result.matchedSkills;
-          unmatchedSkills = result.unmatchedSkills;
+          const result = calculateComprehensiveMatch(job, resume);
+          similarityScore = result.totalScore;
+          matchedSkills = result.details?.matchedSkills || [];
+          unmatchedSkills = result.details?.unmatchedSkills || [];
         }
 
         return {
@@ -537,10 +534,10 @@ export const getMatchingResults = async (req, res) => {
         let unmatchedSkills = [];
 
         if (resume && job) {
-          const result = calculateSimilarityScore(job, resume);
-          similarityScore = result.score;
-          matchedSkills = result.matchedSkills;
-          unmatchedSkills = result.unmatchedSkills;
+          const result = calculateComprehensiveMatch(job, resume);
+          similarityScore = result.totalScore;
+          matchedSkills = result.details?.matchedSkills || [];
+          unmatchedSkills = result.details?.unmatchedSkills || [];
         }
 
         allResults.push({
@@ -625,10 +622,10 @@ export const getShortlisted = async (req, res) => {
         let unmatchedSkills = [];
 
         if (resume && job) {
-          const result = calculateSimilarityScore(job, resume);
-          similarityScore = result.score;
-          matchedSkills = result.matchedSkills;
-          unmatchedSkills = result.unmatchedSkills;
+          const result = calculateComprehensiveMatch(job, resume);
+          similarityScore = result.totalScore;
+          matchedSkills = result.details?.matchedSkills || [];
+          unmatchedSkills = result.details?.unmatchedSkills || [];
         }
 
         // Include if manually shortlisted OR high similarity score

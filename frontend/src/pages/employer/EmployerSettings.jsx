@@ -383,7 +383,7 @@ export default function EmployerSettings() {
                 </div>
                 <div className="settings-field">
                   <label>Employee Count</label>
-                  <select value={employeeCount} onChange={(e) => setEmployeeCount(e.target.value)} style={{ padding: "12px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px", backgroundColor: "#f8fafc", width: "100%" }}>
+                  <select value={employeeCount} onChange={(e) => setEmployeeCount(e.target.value)} className="themed-select">
                     <option value="">Select size</option>
                     <option value="1-10">1-10 employees</option>
                     <option value="11-50">11-50 employees</option>
@@ -399,17 +399,13 @@ export default function EmployerSettings() {
                 <input type="text" value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} placeholder="e.g. REG-12345678" />
               </div>
 
-              <div className="settings-field" style={{ marginBottom: "20px" }}>
+                <div className="settings-field" style={{ marginBottom: "20px" }}>
                 <label>Company Description</label>
                 <textarea
                   value={companyDescription}
                   onChange={(e) => setCompanyDescription(e.target.value)}
                   placeholder="Describe your company, culture, and what you do..."
-                  style={{
-                    width: "100%", minHeight: "120px", padding: "12px 16px", border: "1px solid #cbd5e1",
-                    borderRadius: "8px", background: "#f8fafc", color: "#1e293b", fontSize: "14px",
-                    fontFamily: "inherit", resize: "vertical", boxSizing: "border-box"
-                  }}
+                  className="themed-textarea"
                 />
               </div>
 
@@ -417,7 +413,7 @@ export default function EmployerSettings() {
                 <label>Logo URL</label>
                 <input type="text" value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="https://example.com/logo.png" />
                 {logo && (
-                  <div style={{ marginTop: "12px", padding: "16px", background: "#f8fafc", borderRadius: "10px", border: "1px solid #e2e8f0", textAlign: "center" }}>
+                  <div className="logo-preview">
                     <img src={logo} alt="Company Logo" style={{ maxWidth: "120px", maxHeight: "120px", borderRadius: "8px", objectFit: "contain" }} onError={(e) => e.target.style.display = "none"} />
                   </div>
                 )}

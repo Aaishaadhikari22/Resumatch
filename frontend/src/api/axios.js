@@ -12,8 +12,17 @@ const API = axios.create({
 const getCacheForEndpoint = (url) => {
   if (url.includes('/dashboard')) return dashboardCache;
   if (url.includes('/jobs') || url.includes('/public/jobs')) return jobsCache;
-  if (url.includes('/profile') || url.includes('/resume')) return userProfileCache;
   if (url.includes('/recommendations')) return recommendationsCache;
+
+  // Cache profile/resume state but never cache resume preview/download endpoints
+  if (url.includes('/resume')) {
+    if (url.includes('/resume/preview') || url.includes('/resume/download')) {
+      return null;
+    }
+    return userProfileCache;
+  }
+
+  if (url.includes('/profile')) return userProfileCache;
   return null;
 };
 
@@ -62,6 +71,7 @@ API.interceptors.response.use(
     if (['post', 'put', 'patch', 'delete'].includes(response.config.method)) {
       dashboardCache.clearAll();
       jobsCache.clearAll();
+      userProfileCache.clearAll();
       recommendationsCache.clearAll();
     }
 

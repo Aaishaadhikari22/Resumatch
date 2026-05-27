@@ -9,6 +9,33 @@ import { getAvailableFormats, isValidFormat } from "../utils/resumeFormats.js";
 import { authenticateJWT } from "../middleware/auth.js";
 import { checkUserJobSeekerPermission } from "../middleware/checkPermissionUniversal.js";
 
+const buildResumeFallback = async (userId) => {
+  const user = await User.findById(userId).select("-password");
+  if (!user) return null;
+
+  const resume = await Resume.findOne({ user: userId }).lean();
+  if (resume) {
+    return { user, resume };
+  }
+
+  return {
+    user,
+    resume: {
+      user: userId,
+      title: user.headline || "My Resume",
+      skills: [],
+      experience: 0,
+      education: "Any",
+      resumeUrl: "auto-generated",
+      extractedText: "",
+      expectedSalary: 0,
+      languages: [],
+      workExperiences: [],
+      educationHistory: []
+    }
+  };
+};
+
 const router = express.Router();
 
 /* ================= GET ALL RESUMES ================= */
@@ -90,19 +117,12 @@ router.get(
         });
       }
 
-      // Get user data
-      const user = await User.findById(userId).select("-password");
-      if (!user) {
+      const data = await buildResumeFallback(userId);
+      if (!data || !data.user) {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Get resume data
-      const resume = await Resume.findOne({ user: userId });
-      if (!resume) {
-        return res.status(404).json({ message: "Resume not found. Please create a resume first." });
-      }
-
-      // Generate HTML
+      const { user, resume } = data;
       const htmlContent = generateResumeHTML(user, resume, format);
 
       // Convert to PDF
@@ -139,15 +159,12 @@ router.get(
         });
       }
 
-      // Get user and resume data
-      const user = await User.findById(userId);
-      const resume = await Resume.findOne({ user: userId });
-
-      if (!user || !resume) {
-        return res.status(404).json({ message: "User or resume not found" });
+      const data = await buildResumeFallback(userId);
+      if (!data || !data.user) {
+        return res.status(404).json({ message: "User not found" });
       }
 
-      // Generate and return HTML
+      const { user, resume } = data;
       const htmlContent = generateResumeHTML(user, resume, format);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(htmlContent);

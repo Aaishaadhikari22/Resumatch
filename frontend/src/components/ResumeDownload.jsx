@@ -6,14 +6,157 @@ import "./ResumeDownload.css";
  * Resume Download Component
  * Allows users to preview and download resumes in multiple country formats
  */
-const ResumeDownload = () => {
+const ResumeDownload = ({ profileData, resumeData }) => {
   const [formats, setFormats] = useState([]);
   const [selectedFormat, setSelectedFormat] = useState("US");
-  const [loading, setLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [previewContent, setPreviewContent] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const user = profileData || {};
+  const resume = resumeData || {
+    skills: [],
+    workExperiences: [],
+    educationHistory: [],
+    languages: []
+  };
+
+  const formatDate = (date, locale = 'en-US', options = { year: 'numeric', month: 'short' }) => {
+    if (!date) return '';
+    try {
+      return new Date(date).toLocaleDateString(locale, options);
+    } catch {
+      return '';
+    }
+  };
+
+  const buildSection = (title, content) => {
+    if (!content) return '';
+    return `<div class="section"><div class="section-title">${title}</div>${content}</div>`;
+  };
+
+  const generateClientResumeHTML = (formatCode) => {
+    const fullName = user.name || 'Your Name';
+    const contact = [user.phone, user.email, user.city].filter(Boolean).join(' • ');
+    const headline = user.headline || user.bio || '';
+    const bio = user.bio || '';
+    const skillsHtml = resume.skills.length ? `<div class="skills">${resume.skills.map(skill => `<span class="skill-pill">${skill}</span>`).join('')}</div>` : '';
+    const languagesHtml = resume.languages.length ? `<div class="skills">${resume.languages.join(', ')}</div>` : '';
+    const experiencesHtml = resume.workExperiences.length ? resume.workExperiences.map(exp => `
+      <div class="item">
+        <div class="item-header"><div class="item-title">${exp.position || ''}</div><div class="item-date">${formatDate(exp.startDate)} - ${exp.endDate ? formatDate(exp.endDate) : 'Present'}</div></div>
+        <div class="item-subtitle">${exp.company || ''}</div>
+        ${exp.description ? `<div class="item-description">${exp.description}</div>` : ''}
+      </div>
+    `).join('') : '';
+    const educationHtml = resume.educationHistory.length ? resume.educationHistory.map(edu => `
+      <div class="item">
+        <div class="item-header"><div class="item-title">${edu.degree || ''}</div><div class="item-date">${formatDate(edu.startDate)} - ${formatDate(edu.endDate)}</div></div>
+        <div class="item-subtitle">${edu.institution || ''}${edu.fieldOfStudy ? ` • ${edu.fieldOfStudy}` : ''}</div>
+      </div>
+    `).join('') : '';
+
+    let sections = '';
+    let title = 'Resume';
+    let subtitle = 'Modern resume format';
+    let extraStyle = '';
+
+    switch (formatCode) {
+      case 'UK':
+        title = 'UK / Europass CV';
+        subtitle = 'Formal European-style curriculum vitae';
+        sections += buildSection('Personal Statement', bio);
+        sections += buildSection('Work Experience', experiencesHtml);
+        sections += buildSection('Education & Qualifications', educationHtml);
+        sections += buildSection('Key Skills', skillsHtml);
+        sections += buildSection('Languages', languagesHtml);
+        extraStyle = '.header { border-color: #003366; } .section-title { background: #003366; color: #fff; }';
+        break;
+      case 'INDIA':
+        title = 'Indian Resume';
+        subtitle = 'Comprehensive Indian resume format';
+        sections += buildSection('Career Objective', headline);
+        sections += buildSection('Professional Summary', bio);
+        sections += buildSection('Professional Experience', experiencesHtml);
+        sections += buildSection('Education', educationHtml);
+        sections += buildSection('Technical Skills', skillsHtml);
+        sections += buildSection('Languages', languagesHtml);
+        extraStyle = '.header { border-color: #000080; } .section-title { color: #000080; border-bottom: 1px solid #000080; }';
+        break;
+      case 'CANADA':
+        title = 'Canadian Resume';
+        subtitle = 'ATS-friendly Canadian resume';
+        sections += buildSection('Profile', bio || headline);
+        sections += buildSection('Professional Experience', experiencesHtml);
+        sections += buildSection('Education', educationHtml);
+        sections += buildSection('Skills', skillsHtml);
+        sections += buildSection('Languages', languagesHtml);
+        extraStyle = '.header { border-color: #4a90e2; } .section-title { background: #e8e8e8; }';
+        break;
+      case 'AUSTRALIA':
+        title = 'Australian Resume';
+        subtitle = 'Professional Australian format';
+        sections += buildSection('Executive Summary', headline || bio);
+        sections += buildSection('Employment History', experiencesHtml);
+        sections += buildSection('Qualifications', educationHtml);
+        sections += buildSection('Key Competencies', skillsHtml);
+        sections += buildSection('Languages', languagesHtml);
+        extraStyle = '.header { border-color: #003d7a; } .section-title { color: #003d7a; border-bottom: 1px solid #003d7a; }';
+        break;
+      default:
+        title = 'US Resume';
+        subtitle = 'ATS-friendly US resume';
+        sections += buildSection('Professional Summary', bio);
+        sections += buildSection('Experience', experiencesHtml);
+        sections += buildSection('Education', educationHtml);
+        sections += buildSection('Skills', skillsHtml);
+        sections += buildSection('Languages', languagesHtml);
+        extraStyle = '.header { border-color: #000; } .section-title { border-bottom: 1px solid #000; }';
+    }
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>${fullName} - ${title}</title>
+        <style>
+          body { font-family: Arial, sans-serif; background: #ffffff; color: #222; margin: 0; padding: 20px; }
+          .container { max-width: 900px; margin: 0 auto; }
+          .header { padding-bottom: 16px; margin-bottom: 16px; border-bottom: 2px solid #000; }
+          .header-title { font-size: 24px; font-weight: bold; margin-bottom: 6px; }
+          .header-subtitle { color: #555; font-size: 14px; margin-bottom: 8px; }
+          .header-contact { color: #555; font-size: 12px; }
+          .section { margin-bottom: 18px; }
+          .section-title { font-size: 14px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; }
+          .item { margin-bottom: 12px; }
+          .item-header { display: flex; justify-content: space-between; flex-wrap: wrap; }
+          .item-title { font-weight: bold; font-size: 13px; }
+          .item-subtitle { font-size: 12px; color: #444; }
+          .item-date { font-size: 12px; color: #666; }
+          .item-description { margin-top: 6px; font-size: 12px; color: #333; line-height: 1.4; }
+          .skills { display: flex; flex-wrap: wrap; gap: 8px; }
+          .skill-pill { background: #eef2ff; color: #1e40af; padding: 6px 10px; border-radius: 999px; font-size: 11px; }
+          ${extraStyle}
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="header-title">${fullName}</div>
+            <div class="header-subtitle">${title} • ${subtitle}</div>
+            <div class="header-contact">${contact}</div>
+          </div>
+          ${sections}
+        </div>
+      </body>
+      </html>
+    `;
+  };
 
   // Fetch available formats
   useEffect(() => {
@@ -35,50 +178,79 @@ const ResumeDownload = () => {
 
   const handlePreview = async () => {
     try {
-      setLoading(true);
+      setPreviewLoading(true);
       setError("");
-      const response = await API.get(`/resume/preview/${selectedFormat}`);
-      setPreviewContent(response.data);
+      const html = generateClientResumeHTML(selectedFormat);
+      setPreviewContent(html);
       setPreviewMode(true);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to preview resume");
+      setError("Failed to preview resume");
       console.error(err);
     } finally {
-      setLoading(false);
+      setPreviewLoading(false);
     }
+  };
+
+  const downloadHtmlToPdf = async (htmlString, fileName) => {
+    const wrapper = document.createElement("div");
+    wrapper.style.position = "fixed";
+    wrapper.style.top = "-9999px";
+    wrapper.style.left = "-9999px";
+    wrapper.style.width = "800px";
+    wrapper.style.padding = "20px";
+    wrapper.innerHTML = htmlString;
+    document.body.appendChild(wrapper);
+
+    const html2canvas = (await import("html2canvas")).default;
+    const jsPDF = (await import("jspdf")).jsPDF;
+
+    const canvas = await html2canvas(wrapper, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: "#ffffff"
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const imgWidth = 210;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+    heightLeft -= 297;
+
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= 297;
+    }
+
+    document.body.removeChild(wrapper);
+    pdf.save(fileName);
   };
 
   const handleDownload = async () => {
     try {
-      setLoading(true);
+      setDownloadLoading(true);
       setError("");
-      
-      const response = await API.get(`/resume/download/${selectedFormat}`, {
-        responseType: 'blob'
-      });
 
-      // Create download link for PDF
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `Resume_${selectedFormat}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const html = generateClientResumeHTML(selectedFormat);
+      await downloadHtmlToPdf(html, `Resume_${selectedFormat}.pdf`);
 
       setSuccess(`Resume downloaded in ${selectedFormat} format!`);
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to download resume");
+      setError("Failed to download resume");
       console.error(err);
     } finally {
-      setLoading(false);
+      setDownloadLoading(false);
     }
   };
 
   const downloadPDF = async () => {
-    // Redirect to main download since it now generates PDF
     await handleDownload();
   };
 
@@ -155,16 +327,16 @@ const ResumeDownload = () => {
           <button
             className="btn btn-preview"
             onClick={handlePreview}
-            disabled={loading}
+            disabled={previewLoading}
           >
-            {loading ? "Loading..." : "👁️ Preview Resume"}
+            {previewLoading ? "Loading..." : "👁️ Preview Resume"}
           </button>
           <button
             className="btn btn-download"
             onClick={handleDownload}
-            disabled={loading}
+            disabled={downloadLoading}
           >
-            {loading ? "Downloading..." : "📄 Download PDF"}
+            {downloadLoading ? "Downloading..." : "📄 Download PDF"}
           </button>
         </div>
 

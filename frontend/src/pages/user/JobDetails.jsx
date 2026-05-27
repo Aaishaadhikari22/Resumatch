@@ -49,11 +49,11 @@ export default function JobDetails() {
   if (loading) return <LoadingSpinner />;
   if (!job) return (
     <div className="admin-page">
-      <div className="admin-card" style={{ padding: 40 }}>
+      <div className="admin-card">
         <h3>Job not found</h3>
-        {debugInfo.error && <div style={{ color: '#b91c1c', marginBottom: 12 }}>{debugInfo.error}</div>}
-        <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 8, maxHeight: 300, overflow: 'auto' }}>{JSON.stringify(debugInfo.raw || {}, null, 2)}</pre>
-        <div style={{ marginTop: 12 }}>
+        {debugInfo.error && <div className="job-debug-error">{debugInfo.error}</div>}
+        <pre className="job-debug-box">{JSON.stringify(debugInfo.raw || {}, null, 2)}</pre>
+        <div className="job-back-container">
           <button onClick={() => navigate('/user/recommendations')}>Back to jobs</button>
         </div>
       </div>
@@ -64,41 +64,41 @@ export default function JobDetails() {
     <div className="admin-page">
       <Toast message={toast?.message} type={toast?.type} onClose={closeToast} />
 
-      <div className="admin-card" style={{ padding: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="admin-card">
+        <div className="job-details-row">
           <div>
-            <h1 style={{ margin: 0 }}>{job.title}</h1>
-            <div style={{ color: '#64748b', marginTop: 6 }}>{job.employer?.companyName || 'Unknown Company'}</div>
+            <h1 className="job-title">{job.title}</h1>
+            <div className="job-subtitle">{job.employer?.companyName || 'Unknown Company'}</div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontWeight: 800, fontSize: 20 }}>{job.similarityScore}%</div>
-            <div style={{ color: '#94a3b8' }}>Match Score</div>
+          <div className="job-score">
+            <div className="job-score-value">{job.similarityScore}%</div>
+            <div className="job-score-label">Match Score</div>
           </div>
         </div>
 
-            <div style={{ marginTop: 20, display: 'flex', gap: 20 }}>
-          <div style={{ flex: 2 }}>
-            <h3 style={{ marginTop: 0 }}>Job Description</h3>
-            <p style={{ color: '#475569', lineHeight: 1.6 }}>{job.description}</p>
+        <div className="job-details-row-responsive">
+          <div className="job-details-column">
+            <h3 className="job-section-title">Job Description</h3>
+            <p className="job-description-text">{job.description}</p>
 
             {job.skillsRequired && job.skillsRequired.length > 0 && (
-              <div style={{ marginTop: 12 }}>
+              <div className="job-section">
                 <h4>Skills Required</h4>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="job-skills-wrap">
                   {job.skillsRequired.map((s, i) => (
-                    <span key={i} style={{ background: '#f1f5f9', padding: '6px 10px', borderRadius: 8 }}>{s}</span>
+                    <span key={i} className="job-skill-pill">{s}</span>
                   ))}
                 </div>
               </div>
             )}
 
-            <div style={{ marginTop: 20 }}>
+            <div className="job-section">
               <h4>Match Breakdown</h4>
-              <pre style={{ whiteSpace: 'pre-wrap', background: '#f8fafc', padding: 12, borderRadius: 8 }}>
+              <pre className="job-debug-box">
                 {JSON.stringify(job.matchDetails || job.matchBreakdown || {}, null, 2)}
               </pre>
             </div>
-            <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
+            <div className="job-actions">
               <button
                 onClick={async () => {
                   if (applying) return;
@@ -113,7 +113,7 @@ export default function JobDetails() {
                   }
                 }}
                 disabled={applying}
-                style={{ padding: '10px 16px', background: applying ? '#cbd5e1' : '#3b82f6', color: 'white', border: 'none', borderRadius: 8, cursor: applying ? 'not-allowed' : 'pointer' }}
+                className="job-primary-btn"
               >
                 {applying ? 'Applying...' : 'Apply Now'}
               </button>
@@ -133,23 +133,23 @@ export default function JobDetails() {
                   }
                 }}
                 disabled={saving || saved}
-                style={{ padding: '10px 16px', background: saved ? '#f1f5f9' : '#f8fafc', color: saved ? '#64748b' : '#475569', border: '1px solid #e2e8f0', borderRadius: 8, cursor: saving || saved ? 'not-allowed' : 'pointer' }}
+                className="job-secondary-btn"
               >
                 {saving ? 'Saving...' : saved ? 'Saved' : 'Save Job'}
               </button>
             </div>
           </div>
 
-          <div style={{ width: 280 }}>
-            <div style={{ background: '#fff', padding: 16, borderRadius: 12, border: '1px solid #e2e8f0' }}>
-              <div style={{ fontWeight: 700, marginBottom: 6 }}>Details</div>
-              <div style={{ color: '#64748b', fontSize: 14 }}>📍 {job.location || job.city || 'Remote'}</div>
-              {job.salary && <div style={{ color: '#059669', marginTop: 8 }}>💰 {formatSalary(job.salary)}</div>}
-              <div style={{ marginTop: 8, color: '#64748b' }}>{job.employmentType || 'Full-time'}</div>
-              <div style={{ marginTop: 8, color: '#64748b' }}>Posted: {new Date(job.createdAt).toLocaleDateString()}</div>
+          <div className="job-details-aside">
+            <div className="job-info-card">
+              <div className="job-info-title">Details</div>
+              <div className="job-info-item">📍 {job.location || job.city || 'Remote'}</div>
+              {job.salary && <div className="job-info-item">💰 {formatSalary(job.salary)}</div>}
+              <div className="job-info-item">{job.employmentType || 'Full-time'}</div>
+              <div className="job-info-item">Posted: {new Date(job.createdAt).toLocaleDateString()}</div>
 
-              <div style={{ marginTop: 16 }}>
-                <button onClick={() => navigate('/user/recommendations')} style={{ width: '100%', padding: 12, background: '#3b82f6', color: 'white', border: 'none', borderRadius: 8 }}>Back</button>
+              <div className="job-action-row">
+                <button onClick={() => navigate('/user/recommendations')} className="job-back-btn">Back</button>
               </div>
             </div>
           </div>

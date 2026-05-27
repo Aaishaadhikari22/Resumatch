@@ -20,17 +20,9 @@ function StatusChartTooltip({ active, payload, label, activeBarIndex, colors }) 
     const data = payload[0];
     const color = colors[activeBarIndex % colors.length];
     return (
-      <div style={{
-        background: "white",
-        padding: "10px 14px",
-        border: `3px solid ${color}`,
-        borderRadius: "6px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-      }}>
-        <p style={{ margin: "0 0 6px 0", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
-          {label}
-        </p>
-        <p style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: color }}>
+      <div className="dashboard-tooltip" style={{ borderColor: color }}>
+        <p className="dashboard-tooltip-label">{label}</p>
+        <p className="dashboard-tooltip-value" style={{ color: color }}>
           {data.name}: {data.value}
         </p>
       </div>
@@ -148,52 +140,42 @@ export default function EmployerDashboard() {
         <div className="emp-column-left">
           
           <div className="emp-stats-card-grid">
-            <Link to="/employer/my-jobs" className="emp-stat-tile" style={{ textDecoration: 'none', cursor: 'pointer' }}>
+            <Link to="/employer/my-jobs" className="emp-stat-tile">
               <p>Active Jobs</p>
               <h3>{stats.activeJobs}</h3>
-              <span style={{ fontSize: '12px', color: '#0d9488', fontWeight: '600', marginTop: '4px', display: 'block' }}>View Jobs →</span>
+              <span className="emp-stat-note">View Jobs →</span>
             </Link>
-            <Link to="/employer/applicants" className="emp-stat-tile" style={{ textDecoration: 'none', cursor: 'pointer' }}>
+            <Link to="/employer/applicants" className="emp-stat-tile">
               <p>Total Applicants</p>
               <h3>{stats.totalApplicants}</h3>
-              <span style={{ fontSize: '12px', color: '#0d9488', fontWeight: '600', marginTop: '4px', display: 'block' }}>View All →</span>
+              <span className="emp-stat-note">View All →</span>
             </Link>
-            <Link to="/employer/applicants" className="emp-stat-tile" style={{ textDecoration: 'none', cursor: 'pointer' }}>
+            <Link to="/employer/applicants" className="emp-stat-tile">
               <p>Hired</p>
               <h3>{stats.acceptedCount}</h3>
-              <span style={{ fontSize: '12px', color: '#0d9488', fontWeight: '600', marginTop: '4px', display: 'block' }}>View Hired →</span>
+              <span className="emp-stat-note">View Hired →</span>
             </Link>
           </div>
 
           <div className="emp-chart-section">
             <h3 className="emp-section-title">Hiring Pipeline Progress</h3>
-            <div style={{ display: "flex", gap: "12px", marginBottom: "15px", flexWrap: "wrap" }}>
+            <div className="bar-legend-row">
               {stats.statusChart?.map((item, index) => (
                 <div
                   key={index}
                   onClick={() => handleBarLegendClick(index)}
+                  className={`bar-legend-pill ${visibleBars[index] ? '' : 'inactive'}`}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    cursor: "pointer",
-                    padding: "6px 10px",
-                    borderRadius: "5px",
-                    backgroundColor: visibleBars[index] ? `${COLORS[index % COLORS.length]}20` : "#f1f5f9",
-                    border: visibleBars[index] ? `2px solid ${COLORS[index % COLORS.length]}` : "1px solid #cbd5e1",
-                    opacity: visibleBars[index] ? 1 : 0.5,
-                    transition: "all 0.2s",
-                    fontSize: "13px",
-                    fontWeight: 500,
-                    color: "#1e293b"
+                    backgroundColor: visibleBars[index] ? `${COLORS[index % COLORS.length]}20` : '#f1f5f9',
+                    border: visibleBars[index] ? `2px solid ${COLORS[index % COLORS.length]}` : '1px solid #cbd5e1'
                   }}
                 >
-                  <span style={{ display: "inline-block", width: "10px", height: "10px", backgroundColor: COLORS[index % COLORS.length], borderRadius: "2px" }}></span>
+                  <span className="legend-dot" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
                   {item.name}
                 </div>
               ))}
             </div>
-            <div style={{ width: "100%", height: "300px", marginTop: "20px" }}>
+            <div className="emp-chart-wrapper">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={stats.statusChart && stats.statusChart.length > 0 ? stats.statusChart : [{name: "No Data", value: 0}]}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -259,15 +241,14 @@ export default function EmployerDashboard() {
                     key={app._id}
                     to={`/employer/applicants?job=${app.job?._id || ''}`}
                     className="emp-list-item"
-                    style={{ textDecoration: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
                   >
                     <div className="item-avatar">{app.user?.name?.[0]}</div>
-                    <div className="item-info" style={{ flex: 1 }}>
+                    <div className="item-info">
                         <strong>{app.user?.name}</strong>
                         <p>{app.job?.title}</p>
                     </div>
                     {app.similarityScore !== undefined && (
-                      <div className={`emp-score-circle ${getScoreClass(app.similarityScore)}`} style={{ transform: 'scale(0.8)', margin: 0 }}>
+                      <div className={`emp-score-circle ${getScoreClass(app.similarityScore)}`}>
                         {app.similarityScore}%
                       </div>
                     )}
@@ -280,14 +261,14 @@ export default function EmployerDashboard() {
             </div>
           </div>
 
-          <div className="emp-card-white" style={{ marginTop: "24px" }}>
+          <div className="emp-card-white emp-section-spaced">
              <h3 className="emp-section-title">🔍 Talent Insights</h3>
              <div className="emp-insights-list">
-                <Link to="/employer/applicants" className="insight-box" style={{ textDecoration: 'none', cursor: 'pointer', display: 'block' }}>
+                <Link to="/employer/applicants" className="insight-box">
                     <strong>Growth</strong>
                     <p>Applications are up 12% this week. View all →</p>
                 </Link>
-                <Link to="/employer/my-jobs" className="insight-box" style={{ textDecoration: 'none', cursor: 'pointer', display: 'block' }}>
+                <Link to="/employer/my-jobs" className="insight-box">
                     <strong>Matches</strong>
                     <p>AI found high-potential matches for your roles. View jobs →</p>
                 </Link>
